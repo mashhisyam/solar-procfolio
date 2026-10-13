@@ -1,0 +1,52 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [app]
+    ports: ['${APP_PORT:-8080}:80']
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - app-public:/var/www/html/public:ro
+    restart: unless-stopped
+
+  app:
+    build: { context: ., target: app }
+    env_file: [.env]
+    depends_on:
+      db: { condition: service_healthy }
+    volumes:
+      - app-public:/var/www/html/public
+      - app-storage:/var/www/html/storage
+    restart: unless-stopped
+
+  # Scheduler + queue: ringkasan harian dan pengiriman email.
+  worker:
+    build: { context: ., target: app }
+    env_file: [.env]
+    depends_on:
+      db: { condition: service_healthy }
+    volumes:
+      - app-storage:/var/www/html/storage
+    command: sh -c "php artisan queue:work --sleep=3 --tries=3 --max-time=3600 & exec php artisan schedule:work"
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-procfolio}
+      POSTGRES_USER: ${DB_USERNAME:-procfolio}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      TZ: Asia/Jakarta
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/backup:/backup
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-procfolio} -d ${DB_DATABASE:-procfolio}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  app-public:
+  app-storage:
