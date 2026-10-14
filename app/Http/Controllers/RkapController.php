@@ -36,14 +36,31 @@ class RkapController extends Controller
             $pakai = $used[$b->id] ?? 0.0;
 
             return [
-                ...$b->only(['id', 'coa', 'cost_center', 'code', 'program', 'klasifikasi', 'year', 'active']),
+                ...$b->only(['id', 'coa', 'cost_center', 'sub_bidang', 'code', 'program', 'klasifikasi', 'year', 'active']),
                 'budget_amount' => $pagu, 'used' => $pakai, 'remaining' => $pagu - $pakai,
                 'percent' => $pagu > 0 ? round($pakai / $pagu * 100, 1) : null,
                 'procurements' => $byCode[$b->id] ?? [],
             ];
         });
 
-        return Inertia::render('Rkap/Index', ['rows' => $rows]);
+        return Inertia::render('Rkap/Index', ['rows' => $rows->map(fn ($r) => collect($r)->except('procurements')->all() + ['count' => count($r['procurements'])])->values()]);
+    }
+
+    /** Detail PRK: persentase terpakai dan daftar pengadaan yang memakai PRK ini. */
+    public function show(BudgetCode $budgetCode, ProcurementInsight $insight): Response
+    {
+        $procs = $budgetCode->procurements()->with(ProcurementInsight::WITH)->where('is_draft', false)->whereNull('cancelled_at')->get();
+        $pagu = (float) $budgetCode->budget_amount;
+        $used = (float) $procs->sum('rab_value');
+
+        return Inertia::render('Rkap/Show', [
+            'prk' => [
+                ...$budgetCode->only(['id', 'coa', 'cost_center', 'sub_bidang', 'code', 'program', 'klasifikasi', 'year', 'active']),
+                'budget_amount' => $pagu, 'used' => $used, 'remaining' => $pagu - $used,
+                'percent' => $pagu > 0 ? round($used / $pagu * 100, 1) : null,
+            ],
+            'rows' => $procs->map(fn ($p) => $insight->row($p))->sortByDesc('rab_value')->values(),
+        ]);
     }
 
     public function save(Request $request, ?BudgetCode $budgetCode = null): RedirectResponse
@@ -51,6 +68,7 @@ class RkapController extends Controller
         $d = $request->validate([
             'coa' => ['required', 'string', 'max:30'],
             'cost_center' => ['required', 'string'],
+            'sub_bidang' => ['nullable', 'string', 'max:20'],
             'code' => ['required', 'string', 'max:40', Rule::unique('budget_codes', 'code')->ignore($budgetCode?->id)],
             'program' => ['required', 'string'],
             'klasifikasi' => ['required', 'string', 'max:60'],

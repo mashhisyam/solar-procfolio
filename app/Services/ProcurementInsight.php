@@ -256,9 +256,11 @@ class ProcurementInsight
         $scheduled = $this->scheduled($v);
         $days = $v && ! $scheduled ? $this->visitDays($v) : null;
         $stage = null;
+        $position = null;
         if ($v) {
             $def = $focus ? null : collect($p->workflow)->firstWhere('key', $v->stage_key);
             $group = $def ? WorkflowService::groupOf($def) : null;
+            $position = $focus ? $v->stage_name : ($group ?: $v->stage_name);
             $stage = ($focus ? "Tahap {$focus['t']->seq} · " : ($v->amendment_id ? 'Amandemen · ' : ''))
                 .($group && $group !== $v->stage_name ? "{$group} · " : '').$v->stage_name;
         } elseif ($p->contract) {
@@ -293,6 +295,8 @@ class ProcurementInsight
             'alerts' => $alerts, 'score' => $this->score($p, $alerts), 'registered_at' => Cal::iso($p->registered_at),
             'vendor' => $p->contract?->vendor?->name, 'sub_bidang' => $p->sub_bidang,
             'stage_key' => $v?->stage_key, 'pic_id' => $v?->pic_id,
+            'position' => $scheduled ? 'Terjadwal' : $position, 'process_days' => $this->processDays($p),
+            'cost' => (float) ($p->contract?->value_incl ?? $p->rab_value), 'category' => $p->category,
             'customer_contract_ids' => $p->customerContracts->pluck('id')->values(),
         ];
     }
@@ -308,6 +312,10 @@ class ProcurementInsight
         $visits = $p->visits->where('track', $track->value)
             ->when($track === Track::Pasca, fn ($c) => $c->where('term_id', $termId))
             ->when($track === Track::Pengadaan, fn ($c) => $c->where('amendment_id', $amendmentId));
+        $allVisits = $visits;
+        if ($track === Track::Pengadaan && ($cut = $visits->where('return_type', 'mayor')->max('id'))) {
+            $visits = $visits->filter(fn ($v) => $v->id > $cut); // siklus approval baru
+        }
         $nodes = [];
         foreach ($list as $s) {
             if (! ($s['enabled'] ?? true)) {
@@ -315,6 +323,7 @@ class ProcurementInsight
             }
             $mine = $visits->where('stage_key', $s['key']);
             $last = $mine->last();
+            $cyclesAll = $allVisits->where('stage_key', $s['key'])->where('status', '!=', 'Dilewati')->count();
             $state = match ($last?->status) {
                 'Dalam Proses' => 'current', 'Selesai' => 'done', 'Dilewati' => 'skipped', 'Dikembalikan' => 'returned', default => 'pending',
             };
@@ -322,7 +331,7 @@ class ProcurementInsight
                 $state = 'done';
             }
             $nodes[] = [
-                'key' => $s['key'], 'name' => $s['name'], 'group' => $track === Track::Pasca ? null : WorkflowService::groupOf($s), 'state' => $state, 'cycles' => $mine->where('status', '!=', 'Dilewati')->count(),
+                'key' => $s['key'], 'name' => $s['name'], 'group' => $track === Track::Pasca ? null : WorkflowService::groupOf($s), 'state' => $state, 'cycles' => $cyclesAll,
                 'date' => $state === 'done' ? Cal::iso($last->completed_at) : ($state === 'current' ? Cal::iso($last->entered_at) : null),
                 'days' => $state === 'current' && ! $this->scheduled($last) ? $this->visitDays($last) : null,
                 'scheduled' => $state === 'current' && $this->scheduled($last),
@@ -348,8 +357,14 @@ class ProcurementInsight
             'id' => $v->id, 'stage' => $v->stage_name, 'cycle' => $v->cycle, 'status' => $v->status,
             'entered_at' => Cal::iso($v->entered_at), 'completed_at' => Cal::iso($v->completed_at),
             'days' => $this->scheduled($v) ? null : $this->visitDays($v), 'pic' => $v->pic?->name, 'activity' => $v->activity,
-            'return_reason' => $v->return_reason, 'amendment_id' => $v->amendment_id,
+            'return_reason' => $v->return_reason, 'return_type' => $v->return_type, 'resume_key' => $v->resume_key, 'amendment_id' => $v->amendment_id,
             'activities' => $v->activities->map(fn ($a) => ['date' => Cal::iso($a->date), 'category' => $a->category, 'note' => $a->note, 'kind' => $a->kind])->values(),
         ])->values()->all();
+    }
+
+    /** Siklus approval Proses Pengadaan: 1 + jumlah Revisi Mayor pada alur yang sama. */
+    public function approvalCycle(Procurement $p, ?int $amendmentId = null): int
+    {
+        return $p->visits->where('track', 'pengadaan')->where('amendment_id', $amendmentId)->where('return_type', 'mayor')->count() + 1;
     }
 }
