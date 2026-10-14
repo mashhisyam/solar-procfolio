@@ -57,7 +57,8 @@ export default function UpdateProcessDrawer({ open, onClose, code, track, term, 
   useEffect(() => { if (!open || !v) return; if (isBa) setF((x) => ({ ...x, activity: mode === 'update' ? (stageActs.includes(x.activity) ? x.activity : stageActs[0] || '') : 'BA Fully Sign' })); }, [mode, open]); // eslint-disable-line react-hooks/exhaustive-deps
   const curGroup = list.find((s) => s.key === v?.stage_key)?.group;
   if (!v) return null;
-  const targetDef = mode === 'complete' || mode === 'skip' ? next : list.find((s) => s.key === f.target);
+  // Revisi Minor/Mayor selalu kembali ke tahap pertama (User Pengaju).
+  const targetDef = mode === 'rev_minor' || mode === 'rev_major' ? list[0] : mode === 'complete' || mode === 'skip' ? next : list.find((s) => s.key === f.target);
   const isLast = (mode === 'complete' || mode === 'skip') && !next;
   const modes = track === 'pengadaan' ? APPROVAL_MODES : MODES;
   const atFirst = track === 'pengadaan' && idx <= 0;
