@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\Holiday;
-use Carbon\CarbonImmutable;
 use DateTimeInterface;
 
 /**
@@ -49,21 +48,36 @@ class WorkdayCalendar
         return $d instanceof DateTimeInterface ? $d->format('Y-m-d') : substr($d, 0, 10);
     }
 
+    /** Cap waktu UTC tengah malam untuk tanggal 'Y-m-d' (tanpa objek tanggal, jauh lebih murah dari Carbon). */
+    private static function ts(string $iso): int
+    {
+        return gmmktime(0, 0, 0, (int) substr($iso, 5, 2), (int) substr($iso, 8, 2), (int) substr($iso, 0, 4));
+    }
+
+    private static function isWeekend(int $ts): bool
+    {
+        $w = (int) gmdate('w', $ts);
+
+        return $w === 0 || $w === 6;
+    }
+
     public function isWorkday(string $iso): bool
     {
         $this->load();
         if (isset($this->extraWork[$iso])) {
             return true;
         }
-        $dow = (int) CarbonImmutable::parse($iso)->dayOfWeek;
-        if ($dow === 0 || $dow === 6) {
+        if (self::isWeekend(self::ts($iso))) {
             return false;
         }
 
         return ! isset($this->off[$iso]);
     }
 
-    /** Hari kerja terpakai pada rentang (dari, sampai]. Hari masuk tahap tidak dihitung. */
+    /**
+     * Hari kerja terpakai pada rentang (dari, sampai]. Hari masuk tahap tidak dihitung.
+     * Dihitung dengan aritmetika (minggu penuh x 5, sisa hari, lalu koreksi libur), bukan iterasi harian.
+     */
     public function workdaysBetween(DateTimeInterface|string|null $from, DateTimeInterface|string|null $to): int
     {
         $a = self::iso($from);
@@ -71,16 +85,27 @@ class WorkdayCalendar
         if (! $a || ! $b || $b <= $a) {
             return 0;
         }
-        $n = 0;
-        $cur = CarbonImmutable::parse($a)->addDay();
-        $end = CarbonImmutable::parse($b);
-        $guard = 0;
-        while ($cur->lte($end) && $guard < 4000) {
-            if ($this->isWorkday($cur->toDateString())) {
+        $this->load();
+        $ta = self::ts($a);
+        $days = intdiv(self::ts($b) - $ta, 86400);
+        $full = intdiv($days, 7);
+        $n = $full * 5;
+        // sisa hari setelah minggu penuh
+        for ($k = 0, $d = $ta + ($full * 7 + 1) * 86400, $rem = $days % 7; $k < $rem; $k++, $d += 86400) {
+            if (! self::isWeekend($d)) {
                 $n++;
             }
-            $cur = $cur->addDay();
-            $guard++;
+        }
+        // libur nasional/cuti bersama pada hari kerja mengurangi; hari kerja pengganti pada akhir pekan menambah
+        foreach ($this->off as $h => $_) {
+            if ($h > $a && $h <= $b && ! self::isWeekend(self::ts($h))) {
+                $n--;
+            }
+        }
+        foreach ($this->extraWork as $h => $_) {
+            if ($h > $a && $h <= $b && self::isWeekend(self::ts($h))) {
+                $n++;
+            }
         }
 
         return $n;
@@ -88,12 +113,12 @@ class WorkdayCalendar
 
     public static function addDays(DateTimeInterface|string $iso, int $n): string
     {
-        return CarbonImmutable::parse(self::iso($iso))->addDays($n)->toDateString();
+        return gmdate('Y-m-d', self::ts((string) self::iso($iso)) + $n * 86400);
     }
 
     public static function daysBetween(DateTimeInterface|string $a, DateTimeInterface|string $b): int
     {
-        return (int) CarbonImmutable::parse(self::iso($a))->diffInDays(CarbonImmutable::parse(self::iso($b)), false);
+        return intdiv(self::ts((string) self::iso($b)) - self::ts((string) self::iso($a)), 86400);
     }
 
     public static function today(): string

@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class GoodsReceipt extends Model
 {
-    protected $fillable = ['payment_term_id', 'status', 'number', 'submitted_at', 'gr_date', 'source_app', 'pic_id', 'link', 'note'];
+    public const TYPES = ['BAST', 'BAPS', 'BA Rekon', 'BAUK'];
+
+    protected $fillable = ['payment_term_id', 'status', 'number', 'gr_type', 'amount', 'submitted_at', 'gr_date', 'source_app', 'pic_id', 'link', 'note'];
 
     protected $casts = ['submitted_at' => 'date', 'gr_date' => 'date'];
 

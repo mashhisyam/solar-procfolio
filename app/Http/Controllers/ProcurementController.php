@@ -43,7 +43,7 @@ class ProcurementController extends Controller
             ])->values(),
             'filters' => [
                 'procMethods' => MasterItem::labels('proc_method'),
-                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'number']),
+                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'kind', 'number']),
                 'stages' => collect(WorkflowTemplate::query()->orderBy('sort')->get(['scheme', 'key', 'name']))->groupBy('scheme'),
             ],
         ]);
@@ -60,11 +60,11 @@ class ProcurementController extends Controller
 
         return Inertia::render('Procurements/Form', [
             'procurement' => [
-                ...$p->only(['code', 'spp_number', 'title', 'summary', 'method', 'proc_type', 'proc_method', 'priority', 'sub_bidang', 'pengaju_name', 'pks_id', 'bak_number', 'is_draft', 'workflow']),
+                ...$p->only(['code', 'spp_number', 'title', 'summary', 'method', 'proc_type', 'category', 'proc_method', 'priority', 'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'rab_value', 'pks_id', 'bak_number', 'is_draft', 'workflow']),
                 'spp_date' => Cal::iso($p->spp_date), 'registered_at' => Cal::iso($p->registered_at), 'bak_date' => Cal::iso($p->bak_date),
                 'candidate_vendor_ids' => $p->candidateVendors->pluck('id'), 'customer_contract_ids' => $p->customerContracts->pluck('id'),
-                'budget_code_ids' => $p->budgetCodes->pluck('id'), 'has_contract' => (bool) $p->contract,
-                'rab_items' => $p->rabItems->map(fn ($r) => ['description' => $r->description, 'budget_type' => $r->budget_type, 'budget_code_id' => $r->budget_code_id, 'qty' => (float) $r->qty, 'unit' => $r->unit, 'price' => (float) $r->price]),
+                'budget_code_id' => $p->budgetCodes->first()?->id, 'has_contract' => (bool) $p->contract,
+                'rab_items' => $p->rabItems->map(fn ($r) => ['description' => $r->description, 'budget_type' => $r->budget_type, 'qty' => (float) $r->qty, 'unit' => $r->unit, 'price' => (float) $r->price]),
                 'documents' => $p->documents->whereNotIn('doc_type', Document::REFERENCE_TYPES)->values()->map(fn ($d) => [...$d->only(['id', 'doc_type', 'number', 'title', 'required', 'available', 'link', 'note']), 'date' => Cal::iso($d->date)]),
                 'ref_docs' => $p->documents->whereIn('doc_type', Document::REFERENCE_TYPES)->values()->map(fn ($d) => [...$d->only(['id', 'doc_type', 'number', 'link', 'customer_id']), 'date' => Cal::iso($d->date)]),
             ],
@@ -76,7 +76,7 @@ class ProcurementController extends Controller
     {
         $data = $this->validated($request);
         $p = DB::transaction(function () use ($data, $numbering, $request) {
-            $p = new Procurement(['code' => $numbering->nextProcurementCode((int) substr($data['registered_at'], 0, 4)), 'created_by' => $request->user()->id]);
+            $p = new Procurement(['code' => $numbering->nextProcurementCode((int) now()->format('Y')), 'created_by' => $request->user()->id]);
             $this->persist($p, $data);
             if (! $p->is_draft) {
                 $this->workflow->register($p);
@@ -93,7 +93,7 @@ class ProcurementController extends Controller
         $data = $this->validated($request, $procurement);
         DB::transaction(function () use ($procurement, $data) {
             $wasDraft = $procurement->is_draft;
-            foreach (['title' => 'Judul', 'spp_number' => 'Nomor SPP', 'priority' => 'Prioritas', 'proc_method' => 'Metode pengadaan', 'pengaju_name' => 'User Pengaju'] as $k => $label) {
+            foreach (['title' => 'Judul', 'spp_number' => 'Nomor SPP', 'priority' => 'Prioritas', 'proc_method' => 'Metode pengadaan', 'category' => 'Kategori pengadaan', 'pic_pengaju_id' => 'User Pengaju'] as $k => $label) {
                 if ((string) $procurement->{$k} !== (string) ($data[$k] ?? '')) {
                     $this->audit->log($procurement->id, 'Pengadaan', $procurement->code, 'Ubah identitas', $label, $procurement->{$k}, $data[$k] ?? null);
                 }
@@ -144,13 +144,14 @@ class ProcurementController extends Controller
             'proc_method' => [$isSpp && ! $draft ? 'required' : 'nullable', 'string'],
             'priority' => ['required', Rule::in(['Normal', 'Urgent'])],
             'sub_bidang' => ['nullable', 'string', 'max:20'],
-            'registered_at' => ['required', 'date'],
+            'registered_at' => ['nullable', 'date'],
+            'category' => [$draft ? 'nullable' : 'required', 'nullable', 'string', 'max:60'],
             'spp_number' => [$isSpp ? 'required' : 'nullable', 'string', 'max:100'],
             'spp_date' => [$isSpp && ! $draft ? 'required' : 'nullable', 'date'],
-            'pengaju_name' => [$draft ? 'nullable' : 'required', 'string', 'max:150'],
+            'pic_pengaju_id' => [$draft ? 'nullable' : 'required', 'nullable', 'exists:pics,id'],
             'candidate_vendor_ids' => [$draft ? 'nullable' : 'required', 'array', $draft ? 'min:0' : 'min:1'],
             'candidate_vendor_ids.*' => ['integer', 'exists:companies,id'],
-            'customer_contract_ids' => ['array'],
+            'customer_contract_ids' => [$draft ? 'nullable' : 'required', 'array', $draft ? 'min:0' : 'min:1'],
             'customer_contract_ids.*' => ['integer', 'exists:customer_contracts,id'],
             'pks_id' => [! $isSpp && ! $draft ? 'required' : 'nullable', 'nullable', 'exists:pks,id'],
             'bak_number' => [! $isSpp && ! $draft ? 'required' : 'nullable', 'nullable', 'string'],
@@ -160,13 +161,10 @@ class ProcurementController extends Controller
             'ref_docs.*.number' => ['nullable', 'string'],
             'ref_docs.*.date' => ['nullable', 'date'],
             'ref_docs.*.link' => ['nullable', new DocumentLink],
-            'ref_docs.*.customer_id' => ['nullable', 'exists:companies,id'],
-            'budget_code_ids' => [$draft ? 'nullable' : 'required', 'array', $draft ? 'min:0' : 'min:1'],
-            'budget_code_ids.*' => ['integer', 'exists:budget_codes,id'],
+            'budget_code_id' => [$draft ? 'nullable' : 'required', 'nullable', 'exists:budget_codes,id'],
             'rab_items' => [$draft ? 'nullable' : 'required', 'array', $draft ? 'min:0' : 'min:1'],
             'rab_items.*.description' => ['required', 'string'],
             'rab_items.*.budget_type' => ['required', Rule::in(['OPEX', 'CAPEX'])],
-            'rab_items.*.budget_code_id' => ['required', 'exists:budget_codes,id'],
             'rab_items.*.qty' => ['required', 'numeric', 'gt:0'],
             'rab_items.*.unit' => ['required', 'string', 'max:60'],
             'rab_items.*.price' => ['required', 'numeric', 'gt:0'],
@@ -185,19 +183,10 @@ class ProcurementController extends Controller
             'workflow.*.name' => ['required', 'string'],
             'workflow.*.enabled' => ['boolean'],
             'workflow.*.pic_id' => ['nullable', 'exists:pics,id'],
-        ], [], ['candidate_vendor_ids' => 'calon vendor', 'budget_code_ids' => 'kode anggaran', 'rab_items' => 'RAB']);
+            'workflow.*.group' => ['nullable', 'string'],
+        ], [], ['candidate_vendor_ids' => 'calon vendor', 'budget_code_id' => 'PRK', 'pic_pengaju_id' => 'User Pengaju', 'rab_items' => 'RAB', 'customer_contract_ids' => 'perjanjian pelanggan']);
 
         if (! $draft) {
-            $hasMom = collect($data['ref_docs'] ?? [])->contains(fn ($d) => $d['doc_type'] === 'MoM' && trim((string) ($d['number'] ?? '')) !== '');
-            if (empty($data['customer_contract_ids']) && ! $hasMom) {
-                throw ValidationException::withMessages(['customer_contract_ids' => 'Setiap pengadaan wajib memiliki dasar dengan pelanggan: pilih BAKB/Kontrak pelanggan atau isi MoM.']);
-            }
-            $codes = $data['budget_code_ids'] ?? [];
-            foreach ($data['rab_items'] ?? [] as $k => $r) {
-                if (! in_array((int) $r['budget_code_id'], array_map('intval', $codes), true)) {
-                    throw ValidationException::withMessages(["rab_items.{$k}.budget_code_id" => 'Kode anggaran baris RAB harus termasuk kode anggaran yang dipilih.']);
-                }
-            }
             if (! $hasContract && ! collect($data['workflow'] ?? [])->contains(fn ($s) => $s['enabled'] ?? true)) {
                 throw ValidationException::withMessages(['workflow' => 'Minimal satu tahap aktif.']);
             }
@@ -212,29 +201,37 @@ class ProcurementController extends Controller
         $rab = collect($d['rab_items'] ?? [])->sum(fn ($r) => (float) $r['qty'] * (float) $r['price']);
         $p->fill([
             'spp_number' => $d['spp_number'] ?? null, 'spp_date' => $d['spp_date'] ?? null, 'title' => $d['title'], 'summary' => $d['summary'] ?? null,
-            'method' => $d['method'], 'proc_type' => $d['proc_type'] ?? null, 'proc_method' => $d['method'] === 'SPP' ? ($d['proc_method'] ?? null) : null,
-            'priority' => $d['priority'], 'sub_bidang' => $d['sub_bidang'] ?? null, 'pengaju_name' => trim((string) ($d['pengaju_name'] ?? '')),
-            'pic_pengaju_id' => Pic::query()->whereRaw('lower(name) = ?', [mb_strtolower(trim((string) ($d['pengaju_name'] ?? '')))])->value('id'),
-            'registered_at' => $d['registered_at'], 'rab_value' => $rab,
+            'method' => $d['method'], 'proc_type' => $d['proc_type'] ?? null, 'category' => $d['category'] ?? null, 'proc_method' => $d['method'] === 'SPP' ? ($d['proc_method'] ?? null) : null,
+            'priority' => $d['priority'], 'sub_bidang' => $d['sub_bidang'] ?? null, 'pengaju_name' => (string) Pic::query()->whereKey($d['pic_pengaju_id'] ?? 0)->value('name'),
+            'pic_pengaju_id' => $d['pic_pengaju_id'] ?? null,
+            // Tanggal registrasi tidak lagi diisi pengguna: otomatis tanggal pengadaan dicatat (tetap saat diedit).
+            'registered_at' => $p->registered_at ?? ($d['registered_at'] ?? now()->toDateString()), 'rab_value' => $rab,
             'pks_id' => $d['method'] === 'Kemitraan' ? ($d['pks_id'] ?? null) : null,
             'bak_number' => $d['method'] === 'Kemitraan' ? ($d['bak_number'] ?? null) : null,
             'bak_date' => $d['method'] === 'Kemitraan' ? ($d['bak_date'] ?? null) : null,
             'is_draft' => (bool) ($d['draft'] ?? false),
         ]);
         if (! $p->exists || ! $p->contract()->exists()) {
-            $p->workflow = collect($d['workflow'] ?? WorkflowTemplate::stagesFor($d['method']))->map(fn ($s) => [
-                'key' => $s['key'], 'name' => $s['name'], 'enabled' => (bool) ($s['enabled'] ?? true), 'optional' => (bool) ($s['optional'] ?? false),
+            $flow = collect($d['workflow'] ?? ($d['method'] === 'SPP' ? WorkflowService::applyRouting(WorkflowTemplate::stagesFor('SPP'), $d['proc_method'] ?? null) : WorkflowTemplate::stagesFor($d['method'])))->map(fn ($s) => [
+                'key' => $s['key'], 'name' => $s['name'], 'group' => $s['group'] ?? null, 'enabled' => (bool) ($s['enabled'] ?? true), 'optional' => (bool) ($s['optional'] ?? false),
                 'pic_id' => $s['pic_id'] ?? null, 'default_activities' => $s['default_activities'] ?? [],
             ])->values()->all();
+            // Rute default menurut metode diterapkan di form; pilihan toggle pengguna dihormati. Manager Pengadaan selalu aktif.
+            $p->workflow = WorkflowService::enforceRequired($flow);
         }
         $p->save();
 
         $p->candidateVendors()->sync($d['candidate_vendor_ids'] ?? []);
         $p->customerContracts()->sync($d['customer_contract_ids'] ?? []);
-        $p->budgetCodes()->sync($d['budget_code_ids'] ?? []);
+        // Satu pengadaan memakai satu PRK; seluruh baris RAB mengikuti PRK tersebut.
+        $prk = $d['budget_code_id'] ?? null;
+        $p->budgetCodes()->sync($prk ? [$prk] : []);
         $p->rabItems()->delete();
         foreach (array_values($d['rab_items'] ?? []) as $k => $r) {
-            $p->rabItems()->create([...collect($r)->only(['description', 'budget_type', 'budget_code_id', 'qty', 'unit', 'price'])->all(), 'sort' => $k]);
+            if (! $prk) {
+                break;
+            }
+            $p->rabItems()->create([...collect($r)->only(['description', 'budget_type', 'qty', 'unit', 'price'])->all(), 'budget_code_id' => $prk, 'sort' => $k]);
         }
         $keep = [];
         foreach ($d['documents'] ?? [] as $doc) {
@@ -251,7 +248,7 @@ class ProcurementController extends Controller
             }
             $keep[] = $p->documents()->create([
                 'doc_type' => $doc['doc_type'], 'number' => $doc['number'] ?? null, 'title' => $doc['doc_type'], 'date' => $doc['date'] ?? null,
-                'link' => $doc['link'] ?? null, 'customer_id' => $doc['customer_id'] ?? null, 'available' => true, 'required' => false,
+                'link' => $doc['link'] ?? null, 'available' => true, 'required' => false,
             ])->id;
         }
         $p->documents()->whereNotIn('id', $keep)->delete();
@@ -263,6 +260,7 @@ class ProcurementController extends Controller
         return [
             'options' => [
                 'procTypes' => MasterItem::labels('proc_type'),
+                'categories' => MasterItem::labels('proc_category'),
                 'procMethods' => MasterItem::labels('proc_method'),
                 'docTypes' => MasterItem::labels('doc_type'),
                 'rabUnits' => MasterItem::labels('rab_unit'),
@@ -271,10 +269,17 @@ class ProcurementController extends Controller
                 'vendors' => Company::query()->whereIn('type', ['Vendor', 'Mitra'])->where('active', true)->orderBy('name')->get(['id', 'name', 'type']),
                 'customers' => Company::query()->where('type', 'Pelanggan')->where('active', true)->orderBy('name')->get(['id', 'name']),
                 'customerContracts' => CustomerContract::query()->with('customer:id,name')->orderBy('number')->get()
-                    ->map(fn ($c) => ['id' => $c->id, 'number' => $c->number, 'title' => $c->title, 'customer' => $c->customer?->name]),
+                    ->map(fn ($c) => ['id' => $c->id, 'kind' => $c->kind, 'number' => $c->number, 'title' => $c->title, 'customer' => $c->customer?->name]),
                 'pks' => Pks::query()->with(['partner:id,name', 'amendments'])->orderBy('number')->get()
                     ->map(fn ($k) => ['id' => $k->id, 'number' => $k->number, 'title' => $k->title, 'partner_id' => $k->partner_id, 'partner' => $k->partner?->name, ...$k->effective()]),
-                'budgetCodes' => BudgetCode::query()->orderBy('code')->get(),
+                'budgetCodes' => (function () {
+                    $used = BudgetCode::usedAmounts();
+
+                    return BudgetCode::query()->orderBy('code')->get()->map(fn ($b) => [
+                        ...$b->only(['id', 'coa', 'cost_center', 'code', 'program', 'klasifikasi', 'active', 'year']),
+                        'budget_amount' => (float) $b->budget_amount, 'used' => $used[$b->id] ?? 0.0,
+                    ]);
+                })(),
                 'templates' => ['SPP' => WorkflowTemplate::stagesFor('SPP'), 'Kemitraan' => WorkflowTemplate::stagesFor('Kemitraan')],
             ],
         ];

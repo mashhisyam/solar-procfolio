@@ -6,12 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-/** BAKB / kontrak pelanggan. */
+/** Dasar pelanggan: BAKB, MoM Kesepakatan Harga, atau Kontrak Pelanggan. */
 class CustomerContract extends Model
 {
-    protected $fillable = ['number', 'title', 'customer_id', 'date', 'link'];
+    public const KINDS = ['BAKB', 'MoM Kesepakatan Harga', 'Kontrak Pelanggan'];
 
-    protected $casts = ['date' => 'date'];
+    protected $fillable = ['kind', 'number', 'title', 'customer_id', 'date', 'revenue', 'link'];
+
+    protected $casts = ['date' => 'date', 'revenue' => 'decimal:2'];
 
     public function customer(): BelongsTo
     {
@@ -20,6 +22,6 @@ class CustomerContract extends Model
 
     public function procurements(): BelongsToMany
     {
-        return $this->belongsToMany(Procurement::class);
+        return $this->belongsToMany(Procurement::class, 'procurement_customer_contract');
     }
 }

@@ -62,8 +62,27 @@ export function Field({ label, required, hint, error, children, className }: { l
   );
 }
 export const inputCls = 'w-full h-9 rounded-lg border border-line bg-surface px-3 text-[13.5px] text-ink placeholder:text-mute/70 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:bg-sunken disabled:text-mute';
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(({ className, invalid, ...rest }, ref) => <input ref={ref} {...rest} aria-invalid={invalid || undefined} className={cx(inputCls, invalid && 'border-bad ring-2 ring-bad/15', className)} />);
-export function Textarea({ className, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) { return <textarea {...rest} className={cx(inputCls, 'h-auto min-h-[72px] py-2', className)} />; }
+/**
+ * Isian teks bebas otomatis huruf kapital. Tidak berlaku untuk email, kata sandi, URL, angka,
+ * tanggal, pencarian, atau bila diberi prop `noCaps` (mis. tautan dan kredensial).
+ */
+const NO_CAPS_TYPES = ['email', 'password', 'url', 'number', 'date', 'datetime-local', 'month', 'time', 'search', 'tel'];
+const toCaps = (v: string) => v.toUpperCase();
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; noCaps?: boolean }>(({ className, invalid, noCaps, onChange, type, ...rest }, ref) => {
+  const caps = !noCaps && !NO_CAPS_TYPES.includes(type || 'text') && !rest.inputMode;
+  return (
+    <input ref={ref} type={type} {...rest}
+      onChange={caps && onChange ? (e) => { const pos = e.target.selectionStart; e.target.value = toCaps(e.target.value); if (pos !== null) e.target.setSelectionRange(pos, pos); onChange(e); } : onChange}
+      aria-invalid={invalid || undefined} className={cx(inputCls, invalid && 'border-bad ring-2 ring-bad/15', className)} />
+  );
+});
+export function Textarea({ className, noCaps, onChange, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { noCaps?: boolean }) {
+  return (
+    <textarea {...rest}
+      onChange={!noCaps && onChange ? (e) => { const pos = e.target.selectionStart; e.target.value = toCaps(e.target.value); e.target.setSelectionRange(pos, pos); onChange(e); } : onChange}
+      className={cx(inputCls, 'h-auto min-h-[72px] py-2', className)} />
+  );
+}
 export function Select({ className, invalid, children, ...rest }: React.SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
   return (
     <div className="relative">
@@ -135,10 +154,11 @@ export function MultiSelect({ options, value, onChange, placeholder = 'Pilih…'
   );
 }
 
-export const isLink = (u?: string | null) => !!u && /^https:\/\/\S+$/i.test(u.trim());
+/** Tautan dapat dibuka langsung bila diawali http(s)://; isian lain tetap diterima. */
+export const isLink = (u?: string | null) => !!u && /^https?:\/\/\S+$/i.test(u.trim());
 
 /** Isian tautan dokumen (SharePoint/sharefolder). Dokumen tidak diunggah ke Procfolio. */
-export function LinkField({ value, onChange, placeholder = 'Tempel tautan SharePoint, contoh https://…sharepoint.com/…', invalid }: { value?: string | null; onChange: (v: string) => void; placeholder?: string; invalid?: boolean }) {
+export function LinkField({ value, onChange, placeholder = 'Tempel tautan dokumen SharePoint/sharefolder', invalid }: { value?: string | null; onChange: (v: string) => void; placeholder?: string; invalid?: boolean }) {
   const text = value || '';
   const valid = isLink(text);
   return (
@@ -146,11 +166,11 @@ export function LinkField({ value, onChange, placeholder = 'Tempel tautan ShareP
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Link2 size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mute" aria-hidden />
-          <input type="url" inputMode="url" value={text} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label="Tautan dokumen" className={cx(inputCls, 'pl-9', ((text && !valid) || invalid) && 'border-warn')} />
+          <input type="text" value={text} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label="Tautan dokumen" className={cx(inputCls, 'pl-9', invalid && 'border-warn')} />
         </div>
         {valid && <a href={text.trim()} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-[12.5px] font-semibold text-brand hover:bg-sunken"><ExternalLink size={14} />Buka</a>}
       </div>
-      {text && !valid && <p className="mt-1 text-[12px] font-medium text-warn">Tautan harus diawali https://</p>}
+      
     </div>
   );
 }
@@ -269,7 +289,7 @@ export function SearchInput({ value, onChange, placeholder = 'Cari…', classNam
   return (
     <div className={cx('relative', className)}>
       <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mute" />
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-9" />
+      <Input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-9" />
       {value && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-mute hover:text-ink" aria-label="Bersihkan" onClick={() => onChange('')}><X size={14} /></button>}
     </div>
   );
@@ -290,6 +310,77 @@ export function Bar({ value, max, tone = 'brand', marker }: { value: number; max
     <div className="relative h-1.5 w-full rounded-full bg-sunken">
       <div className={cx('h-1.5 rounded-full transition-all', c)} style={{ width: `${p}%` }} />
       {marker !== undefined && <span className="absolute -top-0.5 h-2.5 w-0.5 rounded bg-ink/40" style={{ left: `${marker}%` }} title="Ambang peringatan" />}
+    </div>
+  );
+}
+
+export interface SearchOpt { value: string; label: string; sub?: string | null; group?: string }
+
+/** Dropdown dengan kotak pencarian. Dipakai untuk pilihan yang panjang, seperti daftar PIC. */
+export function SearchSelect({ value, onChange, options, placeholder = 'Pilih', searchPlaceholder = 'Cari nama, jabatan atau peran', invalid, disabled, ariaLabel }: {
+  value: string; onChange: (v: string) => void; options: SearchOpt[]; placeholder?: string; searchPlaceholder?: string; invalid?: boolean; disabled?: boolean; ariaLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [hi, setHi] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    setQ(''); setHi(0);
+    setTimeout(() => inputRef.current?.focus(), 0);
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  const sel = options.find((o) => o.value === value);
+  const term = q.trim().toLowerCase();
+  const list = options.filter((o) => !term || `${o.label} ${o.sub || ''} ${o.group || ''}`.toLowerCase().includes(term));
+  const pick = (v: string) => { onChange(v); setOpen(false); };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => Math.min(list.length - 1, h + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(0, h - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (list[hi]) pick(list[hi].value); }
+    else if (e.key === 'Escape') setOpen(false);
+  };
+  let lastGroup: string | undefined;
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel}
+        onClick={() => setOpen(!open)}
+        className={cx(inputCls, 'flex items-center justify-between gap-2 text-left disabled:opacity-60', invalid && 'border-bad ring-2 ring-bad/15')}>
+        <span className={cx('min-w-0 truncate', !sel && 'text-mute')}>{sel ? sel.label : placeholder}{sel?.sub ? <span className="text-mute"> · {sel.sub}</span> : null}</span>
+        <ChevronDown size={15} className="shrink-0 text-mute" />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 z-40 mt-1 overflow-hidden rounded-lg border border-line bg-surface shadow-pop" onKeyDown={onKey}>
+          <div className="relative border-b border-line p-2">
+            <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-mute" />
+            <input ref={inputRef} type="search" value={q} onChange={(e) => { setQ(e.target.value); setHi(0); }} placeholder={searchPlaceholder} aria-label={searchPlaceholder}
+              className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-[13px] outline-none focus:border-brand" />
+          </div>
+          <ul role="listbox" className="max-h-64 overflow-y-auto py-1 text-[13px]">
+            <li><button type="button" onClick={() => pick('')} className="w-full px-3 py-1.5 text-left text-mute hover:bg-sunken">{placeholder}</button></li>
+            {list.length === 0 && <li className="px-3 py-2 text-mute">Tidak ditemukan.</li>}
+            {list.map((o, i) => {
+              const head = o.group && o.group !== lastGroup ? o.group : null;
+              lastGroup = o.group;
+              return (
+                <React.Fragment key={o.value}>
+                  {head && <li className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-mute">{head}</li>}
+                  <li role="option" aria-selected={o.value === value}>
+                    <button type="button" onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}
+                      className={cx('flex w-full items-center gap-2 px-3 py-1.5 text-left', i === hi && 'bg-sunken', o.value === value && 'font-semibold text-brand')}>
+                      <span className="min-w-0 flex-1 truncate">{o.label}{o.sub ? <span className="font-normal text-mute"> · {o.sub}</span> : null}</span>
+                      {o.value === value && <Check size={14} className="shrink-0" />}
+                    </button>
+                  </li>
+                </React.Fragment>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

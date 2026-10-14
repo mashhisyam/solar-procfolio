@@ -7,12 +7,11 @@ import { fmtDate } from '@/lib/format';
 
 type Company = { id: number; name: string; type: string; active: boolean };
 type PicRow = { id: number; name: string; title: string | null; company_id: number | null; company?: { id: number; name: string } | null; role: string | null; sub_bidang: string | null; email: string | null; phone: string | null; active: boolean };
-type Budget = { id: number; coa: string; cost_center: string; code: string; program: string; klasifikasi: string; active: boolean; procurements_count: number };
 type Item = { id: number; group: string; label: string; active: boolean; locked: boolean };
 type Tpl = { id: number; scheme: string; key: string; name: string; enabled: boolean; optional: boolean; default_activities: string[] | null; pic_id: number | null };
-interface Props { tab: string; companies: Company[]; pics: PicRow[]; budgetCodes: Budget[]; items: Record<string, Item[]>; groups: Record<string, string>; templates: Record<string, Tpl[]>; settings: Record<string, number>; holidays: { id: number; date: string; name: string; type: string }[]; users: { id: number; name: string; email: string; role: string; active: boolean }[] }
+interface Props { tab: string; companies: Company[]; pics: PicRow[]; items: Record<string, Item[]>; groups: Record<string, string>; templates: Record<string, Tpl[]>; settings: Record<string, number>; holidays: { id: number; date: string; name: string; type: string }[]; users: { id: number; name: string; email: string; role: string; active: boolean }[] }
 
-const TABS = [{ key: 'organisasi', label: 'Organisasi & PIC' }, { key: 'anggaran', label: 'Kode Anggaran' }, { key: 'daftar', label: 'Master Daftar' }, { key: 'workflow', label: 'Workflow' }, { key: 'alert', label: 'Alert & Aturan' }, { key: 'kalender', label: 'Kalender' }, { key: 'pengguna', label: 'Pengguna' }];
+const TABS = [{ key: 'organisasi', label: 'Organisasi & PIC' }, { key: 'daftar', label: 'Master Daftar' }, { key: 'workflow', label: 'Workflow' }, { key: 'alert', label: 'Alert & Aturan' }, { key: 'kalender', label: 'Kalender' }, { key: 'pengguna', label: 'Pengguna' }];
 const post = (url: string, data: Record<string, unknown>, done?: () => void) => router.post(url, data as never, { preserveScroll: true, onSuccess: done });
 
 export default function MasterIndex(props: Props) {
@@ -23,7 +22,6 @@ export default function MasterIndex(props: Props) {
       <PageHeader title="Master & Konfigurasi" desc="Referensi dropdown, template alur, alert dan kalender kerja. Data yang sudah dipakai dinonaktifkan, bukan dihapus." />
       <Tabs className="mb-5" value={tab} onChange={(t) => { setTab(t); window.history.replaceState({}, '', `?tab=${t}`); }} tabs={TABS} />
       {tab === 'organisasi' && <Org {...props} />}
-      {tab === 'anggaran' && <Budgets rows={props.budgetCodes} />}
       {tab === 'daftar' && <Lists items={props.items} groups={props.groups} />}
       {tab === 'workflow' && <Workflows templates={props.templates} />}
       {tab === 'alert' && <Settings settings={props.settings} />}
@@ -48,7 +46,7 @@ function Org({ companies, pics }: Props) {
         {p && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Nama" required><Input value={p.name || ''} onChange={(e) => setP({ ...p, name: e.target.value })} /></Field>
           <Field label="Jabatan"><Input value={p.title || ''} onChange={(e) => setP({ ...p, title: e.target.value })} /></Field>
-          <Field label="Peran"><Input list="roles" value={p.role || ''} onChange={(e) => setP({ ...p, role: e.target.value })} /><datalist id="roles">{['Solution Architect', 'Anggaran', 'Perencana Pengadaan', 'Pelaksana Pengadaan', 'Partnership', 'Finance', 'Penandatangan', 'Penandatangan Vendor', 'Penandatangan Mitra'].map((r) => <option key={r} value={r} />)}</datalist></Field>
+          <Field label="Peran"><Input noCaps list="roles" value={p.role || ''} onChange={(e) => setP({ ...p, role: e.target.value })} /><datalist id="roles">{['User Pengaju', 'Manager Pengaju', 'L1/VP Pengaju', 'Direktur Pengaju', 'Staff Anggaran', 'Manager Anggaran', 'L1/VP Anggaran', 'Direktur Anggaran', 'Manager Pengadaan', 'SPV Rendan', 'Staff Rendan', 'SPV Lakdan', 'Staff Lakdan', 'Partnership', 'Finance', 'Penandatangan', 'Penandatangan Vendor', 'Penandatangan Mitra'].map((r) => <option key={r} value={r} />)}</datalist></Field>
           <Field label="Perusahaan"><Select value={p.company_id ?? ''} onChange={(e) => setP({ ...p, company_id: Number(e.target.value) || null })}><option value="">–</option>{companies.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
           <Field label="Sub bidang"><Select value={p.sub_bidang || ''} onChange={(e) => setP({ ...p, sub_bidang: e.target.value })}><option value="">–</option><option>PLN 1</option><option>PLN 2</option></Select></Field>
           <Field label="Email"><Input value={p.email || ''} onChange={(e) => setP({ ...p, email: e.target.value })} /></Field>
@@ -57,26 +55,6 @@ function Org({ companies, pics }: Props) {
         </div>}
       </Modal>
     </div>
-  );
-}
-
-function Budgets({ rows }: { rows: Budget[] }) {
-  const [b, setB] = useState<Partial<Budget> | null>(null);
-  return (
-    <Card><CardHead title={`Kode Anggaran (${rows.length})`} actions={<Button size="sm" variant="primary" icon={Plus} onClick={() => setB({ coa: '', cost_center: rows[0]?.cost_center || '', code: '', program: '', klasifikasi: 'PRODUKSI LANGSUNG', active: true })}>Tambah</Button>} />
-      <TableWrap><thead><tr>{['COA', 'Cost Center', 'Kode Anggaran', 'Program Kerja', 'Klasifikasi Beban', 'Dipakai', 'Aktif', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-        <tbody>{rows.map((x) => <tr key={x.id} className={cx(!x.active && 'opacity-60')}><td className={cx(td, 'num')}>{x.coa}</td><td className={td}>{x.cost_center}</td><td className={cx(td, 'num font-bold')}>{x.code}</td><td className={cx(td, 'min-w-[260px]')}>{x.program}</td><td className={td}>{x.klasifikasi}</td><td className={cx(td, 'num')}>{x.procurements_count || '–'}</td><td className={td}>{x.active ? 'Ya' : 'Tidak'}</td><td className={td}><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setB(x)}>Ubah</Button></td></tr>)}</tbody></TableWrap>
-      <Modal open={!!b} onClose={() => setB(null)} title={b?.id ? 'Ubah kode anggaran' : 'Tambah kode anggaran'} footer={<><Button onClick={() => setB(null)}>Batal</Button><Button variant="primary" icon={Save} onClick={() => post(`/master/kode-anggaran${b?.id ? `/${b.id}` : ''}`, b!, () => setB(null))}>Simpan</Button></>}>
-        {b && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="COA" required><Input className="num" value={b.coa || ''} onChange={(e) => setB({ ...b, coa: e.target.value })} /></Field>
-          <Field label="Kode anggaran" required><Input className="num" value={b.code || ''} onChange={(e) => setB({ ...b, code: e.target.value })} /></Field>
-          <Field label="Cost center" required className="sm:col-span-2"><Input value={b.cost_center || ''} onChange={(e) => setB({ ...b, cost_center: e.target.value })} /></Field>
-          <Field label="Program kerja" required className="sm:col-span-2"><Input value={b.program || ''} onChange={(e) => setB({ ...b, program: e.target.value })} /></Field>
-          <Field label="Klasifikasi beban" required><Input value={b.klasifikasi || ''} onChange={(e) => setB({ ...b, klasifikasi: e.target.value })} /></Field>
-          <Switch checked={!!b.active} onChange={(v) => setB({ ...b, active: v })} label="Aktif" />
-        </div>}
-      </Modal>
-    </Card>
   );
 }
 
@@ -103,10 +81,10 @@ function Workflows({ templates }: { templates: Record<string, Tpl[]> }) {
         <tbody>{rows.map((r, i) => <tr key={r.key + i}>
           <td className={td}><div className="flex gap-1"><button disabled={i === 0} onClick={() => move(i, -1)} aria-label="Naik" className="text-mute disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label="Turun" className="text-mute disabled:opacity-30"><ArrowDown size={14} /></button></div></td>
           <td className={cx(td, 'num text-mute')}>{r.key}</td>
-          <td className={td}><Input className="h-8" value={r.name} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
+          <td className={td}><Input noCaps className="h-8" value={r.name} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /></td>
           <td className={td}><Switch checked={r.enabled} onChange={(v) => setRows(rows.map((x, j) => (j === i ? { ...x, enabled: v } : x)))} label="" /></td>
           <td className={td}><Switch checked={r.optional} onChange={(v) => setRows(rows.map((x, j) => (j === i ? { ...x, optional: v } : x)))} label="" /></td>
-          <td className={cx(td, 'min-w-[280px]')}><Input className="h-8" value={(r.default_activities || []).join(', ')} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, default_activities: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } : x)))} /></td>
+          <td className={cx(td, 'min-w-[280px]')}><Input noCaps className="h-8" value={(r.default_activities || []).join(', ')} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, default_activities: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } : x)))} /></td>
           <td className={td}>{scheme !== 'Pasca' && !['pengaju'].includes(r.key) && <button aria-label="Hapus tahap" className="text-mute hover:text-bad" onClick={() => setRows(rows.filter((_, j) => j !== i))}><Trash2 size={14} /></button>}</td>
         </tr>)}</tbody></TableWrap>
       {scheme !== 'Pasca' && <div className="p-3"><Button size="sm" icon={Plus} onClick={() => setRows([...rows.slice(0, -1), { id: 0, scheme, key: `tahap-${rows.length + 1}`, name: 'Tahap baru', enabled: true, optional: true, default_activities: ['Review Dokumen'], pic_id: null }, ...rows.slice(-1)])}>Tambah tahap</Button></div>}

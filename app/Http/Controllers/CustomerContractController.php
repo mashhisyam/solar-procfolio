@@ -13,17 +13,18 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** BAKB / kontrak pelanggan. Pengadaan ditampilkan dengan Nomor SPP. */
+/** Dasar pelanggan: BAKB, MoM Kesepakatan Harga, Kontrak Pelanggan. Pengadaan ditampilkan dengan Nomor SPP. */
 class CustomerContractController extends Controller
 {
     public function index(): Response
     {
         return Inertia::render('CustomerContracts/Index', [
             'rows' => CustomerContract::query()->with(['customer:id,name', 'procurements:id,code,spp_number'])->orderByDesc('date')->get()->map(fn (CustomerContract $c) => [
-                ...$c->only(['id', 'number', 'title', 'customer_id', 'link']), 'date' => Cal::iso($c->date), 'customer' => $c->customer?->name,
+                ...$c->only(['id', 'kind', 'number', 'title', 'customer_id', 'link']), 'revenue' => $c->revenue !== null ? (float) $c->revenue : null, 'date' => Cal::iso($c->date), 'customer' => $c->customer?->name,
                 'procurements' => $c->procurements->map(fn ($p) => ['code' => $p->code, 'spp_number' => $p->spp_number]),
             ]),
             'customers' => Company::query()->where('type', 'Pelanggan')->orderBy('name')->get(['id', 'name']),
+            'kinds' => CustomerContract::KINDS,
         ]);
     }
 
@@ -32,9 +33,10 @@ class CustomerContractController extends Controller
         $c = $customerContract->load(['customer:id,name', 'procurements' => fn ($q) => $q->with(ProcurementInsight::WITH)]);
 
         return Inertia::render('CustomerContracts/Show', [
-            'contract' => [...$c->only(['id', 'number', 'title', 'customer_id', 'link']), 'date' => Cal::iso($c->date), 'customer' => $c->customer?->name],
+            'contract' => [...$c->only(['id', 'kind', 'number', 'title', 'customer_id', 'link']), 'revenue' => $c->revenue !== null ? (float) $c->revenue : null, 'date' => Cal::iso($c->date), 'customer' => $c->customer?->name],
             'rows' => $c->procurements->map(fn ($p) => $insight->row($p))->values(),
             'customers' => Company::query()->where('type', 'Pelanggan')->orderBy('name')->get(['id', 'name']),
+            'kinds' => CustomerContract::KINDS,
         ]);
     }
 
@@ -56,10 +58,12 @@ class CustomerContractController extends Controller
     private function rules(Request $request, ?int $id = null): array
     {
         return $request->validate([
+            'kind' => ['required', Rule::in(CustomerContract::KINDS)],
             'number' => ['required', 'string', 'max:120', Rule::unique('customer_contracts', 'number')->ignore($id)],
             'title' => ['required', 'string', 'max:255'],
             'customer_id' => ['required', 'exists:companies,id'],
             'date' => ['nullable', 'date'],
+            'revenue' => ['nullable', 'numeric', 'min:0'],
             'link' => ['nullable', new DocumentLink],
         ]);
     }

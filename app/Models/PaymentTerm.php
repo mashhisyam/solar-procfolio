@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /** Tahap pembayaran; setiap tahap memiliki satu alur Pasca Pengadaan. */
 class PaymentTerm extends Model
 {
-    protected $fillable = ['procurement_id', 'seq', 'name', 'kind', 'percent', 'amount', 'planned_end', 'period', 'paid_at'];
+    protected $fillable = ['procurement_id', 'seq', 'name', 'kind', 'percent', 'amount', 'planned_end', 'period', 'bucket_code', 'bucket_number', 'bucket_link', 'paid_at'];
 
     protected $casts = ['percent' => 'decimal:2', 'amount' => 'decimal:2', 'planned_end' => 'date', 'paid_at' => 'date'];
 

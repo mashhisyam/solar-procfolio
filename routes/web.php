@@ -14,6 +14,7 @@ use App\Http\Controllers\PaymentTermController;
 use App\Http\Controllers\PksController;
 use App\Http\Controllers\ProcessController;
 use App\Http\Controllers\ProcurementController;
+use App\Http\Controllers\RkapController;
 use App\Http\Controllers\SettlementController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,8 @@ Route::middleware('auth')->group(function () {
     // ---- Baca (semua peran) ----
     Route::get('/', DashboardController::class);
     Route::get('/pengadaan', [ProcurementController::class, 'index']);
+    Route::get('/rkap', [RkapController::class, 'index']);
+    Route::get('/rkap/{budgetCode}', [RkapController::class, 'show'])->whereNumber('budgetCode');
     Route::get('/pengadaan/baru', [ProcurementController::class, 'create'])->middleware('can:edit');
     Route::get('/pengadaan/{procurement}', [ProcurementController::class, 'show']);
     Route::get('/pengadaan/{procurement}/edit', [ProcurementController::class, 'edit'])->middleware('can:edit');
@@ -82,6 +85,8 @@ Route::middleware('auth')->group(function () {
         Route::put('/ba-penandatangan/{signatory}', [BeritaAcaraController::class, 'updateSignatory']);
         Route::delete('/ba-penandatangan/{signatory}', [BeritaAcaraController::class, 'removeSignatory']);
 
+        Route::post('/rkap/prk/{budgetCode?}', [RkapController::class, 'save']);
+
         Route::post('/bakb', [CustomerContractController::class, 'store']);
         Route::put('/bakb/{customerContract}', [CustomerContractController::class, 'update']);
         Route::post('/pks', [PksController::class, 'store']);
@@ -94,7 +99,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [MasterController::class, 'index']);
         Route::post('/perusahaan/{company?}', [MasterController::class, 'saveCompany']);
         Route::post('/pic/{pic?}', [MasterController::class, 'savePic']);
-        Route::post('/kode-anggaran/{budgetCode?}', [MasterController::class, 'saveBudgetCode']);
         Route::post('/daftar/{item?}', [MasterController::class, 'saveItem']);
         Route::post('/workflow/{scheme}', [MasterController::class, 'saveWorkflow']);
         Route::post('/pengaturan', [MasterController::class, 'saveSettings']);

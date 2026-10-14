@@ -7,8 +7,11 @@ use App\Enums\InvoiceStatus;
 use App\Enums\Track;
 use App\Enums\VisitStatus;
 use App\Models\ContractAmendment;
-use App\Models\PaymentTerm;
+use App\Models\GoodsReceipt;
+use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PaymentTerm;
+use App\Models\Pic;
 use App\Models\Procurement;
 use App\Models\StageActivity;
 use App\Models\StageVisit;
@@ -16,6 +19,7 @@ use App\Models\TermPlanHistory;
 use App\Models\VendorContract;
 use App\Models\WorkflowTemplate;
 use App\Support\WorkdayCalendar as Cal;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -42,6 +46,63 @@ class WorkflowService
         }
 
         return $list;
+    }
+
+    /**
+     * Rute default menurut metode pengadaan. Setelah Anggaran, semua pengadaan masuk ke Manager Pengadaan.
+     * - Pengadaan Langsung: Manager Pengadaan -> SPV Lakdan -> Staff Lakdan.
+     * - Metode lain: Manager Pengadaan -> SPV Rendan -> Staff Rendan -> SPV Lakdan -> Staff Lakdan.
+     * Hanya tahap Rendan yang mengikuti metode; tahap lain tidak diubah.
+     *
+     * @param  array<int, array<string, mixed>>  $workflow
+     * @return array<int, array<string, mixed>>
+     */
+    public static function applyRouting(array $workflow, ?string $procMethod): array
+    {
+        $direct = $procMethod === 'Pengadaan Langsung';
+
+        return array_map(function ($s) use ($direct) {
+            if (str_starts_with($s['key'], 'rendan_')) {
+                $s['enabled'] = ! $direct;
+            }
+
+            return $s;
+        }, $workflow);
+    }
+
+    /**
+     * Pastikan tahap yang wajib selalu aktif (Manager Pengadaan), apa pun isian pengguna.
+     *
+     * @param  array<int, array<string, mixed>>  $workflow
+     * @return array<int, array<string, mixed>>
+     */
+    public static function enforceRequired(array $workflow): array
+    {
+        return array_map(function ($s) {
+            if ($s['key'] === 'pengadaan_mgr') {
+                $s['enabled'] = true;
+                $s['optional'] = false;
+            }
+
+            return $s;
+        }, $workflow);
+    }
+
+    /** Kelompok tahap (Pengaju, Anggaran, ...); alur lama tanpa kelompok memakai kunci tahap. */
+    public static function groupOf(array $stage): string
+    {
+        return $stage['group'] ?? match (true) {
+            str_starts_with($stage['key'], 'pengaju') => 'Pengaju',
+            str_starts_with($stage['key'], 'anggaran') => 'Anggaran',
+            default => $stage['name'],
+        };
+    }
+
+    private function hasDone(Procurement $p, string $key, ?int $termId, ?int $amendmentId): bool
+    {
+        return StageVisit::query()->where('procurement_id', $p->id)->where('stage_key', $key)
+            ->where('term_id', $termId)->where('amendment_id', $amendmentId)
+            ->where('status', VisitStatus::Done->value)->exists();
     }
 
     /** @param array<int, array<string, mixed>> $list */
@@ -117,7 +178,9 @@ class WorkflowService
             VisitStatus::Returned => "Dikembalikan: {$reason}",
             default => "Tahap {$v->stage_name} dilewati".($reason ? ": {$reason}" : '').'.',
         };
-        $kind = match ($status) { VisitStatus::Done => 'selesai', VisitStatus::Returned => 'kembali', default => 'lewati' };
+        $kind = match ($status) {
+            VisitStatus::Done => 'selesai', VisitStatus::Returned => 'kembali', default => 'lewati'
+        };
         $this->activity($v, $date, $activity ?: (string) $v->activity, $note, $kind);
     }
 
@@ -128,11 +191,15 @@ class WorkflowService
         $from = self::index($list, $fromKey);
         $to = self::index($list, $toKey);
         foreach (array_slice($list, $from + 1, max(0, $to - $from - 1)) as $s) {
+            // Tahap nonaktif tidak dicatat; tahap yang pernah selesai (mis. Anggaran setelah dikembalikan) tetap Selesai.
+            if (! ($s['enabled'] ?? true) || $this->hasDone($p, $s['key'], $termId, $amendmentId)) {
+                continue;
+            }
             $v = StageVisit::query()->create([
                 'procurement_id' => $p->id, 'track' => $track->value, 'term_id' => $termId, 'amendment_id' => $amendmentId,
                 'stage_key' => $s['key'], 'stage_name' => $s['name'], 'cycle' => 1, 'entered_at' => $date, 'completed_at' => $date,
                 'status' => VisitStatus::Skipped->value, 'activity' => 'Lainnya',
-                'note' => ($s['enabled'] ?? true) ? $reason : 'Tahap dinonaktifkan pada alur ini.', 'last_update_at' => $date,
+                'note' => $reason, 'last_update_at' => $date,
             ]);
             $this->activity($v, $date, 'Lainnya', "Tahap {$s['name']} dilewati. {$v->note}", 'lewati');
         }
@@ -180,14 +247,30 @@ class WorkflowService
             $activity = $d['activity'] ?? $v->activity;
             $target = $d['target'] ?? null;
             $targetPic = $d['target_pic_id'] ?? null;
-            $next = self::next($list, $v->stage_key);
+            // Revisi Minor: setelah pengaju selesai, langsung kembali ke tahap yang mengembalikan.
+            $resume = $v->resume_key ? ($list[self::index($list, $v->resume_key)] ?? null) : null;
+            $next = $resume ?: self::next($list, $v->stage_key);
+            $first = collect($list)->first(fn ($s) => $s['enabled'] ?? true);
             $term = $termId ? PaymentTerm::query()->find($termId) : null;
             $subject = $term ? "Tahap {$term->seq}" : ($amendmentId ? 'Amandemen' : 'Proses Pengadaan');
 
             $errors = [];
             $start = $entered ?: Cal::iso($v->entered_at);
             if ($date < $start && ! ($track === Track::Pasca && $v->stage_key === 'pelaksanaan')) {
-                $errors['date'] = 'Tanggal perubahan tidak boleh sebelum tanggal masuk tahap.';
+                $errors['date'] = 'Tanggal kegiatan tidak boleh sebelum tanggal masuk tahap ('.Cal::iso($v->entered_at).').';
+            }
+            if ($track === Track::Pengadaan && in_array($mode, ['skip', 'move', 'return'], true)) {
+                $errors['mode'] = 'Pada Proses Pengadaan gunakan Revisi Minor atau Revisi Mayor untuk mengembalikan; tahap tidak dapat dilewati.';
+            }
+            if (in_array($mode, ['rev_minor', 'rev_major'], true)) {
+                if ($track !== Track::Pengadaan) {
+                    $errors['mode'] = 'Revisi Minor/Mayor hanya untuk Proses Pengadaan.';
+                } elseif (! $first || $first['key'] === $v->stage_key) {
+                    $errors['mode'] = 'Proses sudah berada di tahap pengaju.';
+                }
+                if (mb_strlen($note) < 5) {
+                    $errors['note'] = 'Alasan revisi wajib diisi.';
+                }
             }
             if (in_array($mode, ['return', 'skip'], true) && mb_strlen($note) < 5) {
                 $errors['note'] = $mode === 'return' ? 'Alasan pengembalian wajib diisi.' : 'Alasan melewati tahap wajib diisi.';
@@ -195,8 +278,32 @@ class WorkflowService
             if (in_array($mode, ['return', 'move'], true) && ! $target) {
                 $errors['target'] = 'Pilih tahap tujuan.';
             }
-            if ($track === Track::Pasca && $term && $this->leavesBa($list, $v->stage_key, $mode, $target) && ! $this->termBaReady($term)) {
-                $errors['mode'] = "Tahap {$term->seq} belum memiliki BA berstatus TTD Selesai. Buat atau selesaikan BA terlebih dahulu.";
+            $current = $list[self::index($list, $v->stage_key)] ?? ['key' => $v->stage_key, 'name' => $v->stage_name];
+            if ($track === Track::Pengadaan && $mode === 'skip' && self::groupOf($current) === 'Anggaran') {
+                $errors['mode'] = 'Tahap Anggaran tidak dapat dilewati.';
+            }
+            if ($track === Track::Pengadaan && $mode === 'move' && $target) {
+                $between = array_slice($list, self::index($list, $v->stage_key) + 1, max(0, self::index($list, $target) - self::index($list, $v->stage_key) - 1));
+                foreach ($between as $s) {
+                    if (($s['enabled'] ?? true) && self::groupOf($s) === 'Anggaran' && ! $this->hasDone($p, $s['key'], null, $amendmentId)) {
+                        $errors['target'] = "Tahap {$s['name']} belum pernah disetujui dan tidak dapat dilompati.";
+                        break;
+                    }
+                }
+            }
+            if ($track === Track::Pasca && $v->stage_key === 'gr' && $mode === 'complete') {
+                foreach (['gr_number' => 'Nomor GR', 'gr_type' => 'Jenis GR', 'gr_amount' => 'Nominal GR', 'gr_link' => 'Tautan dokumen GR'] as $k => $label) {
+                    if (blank($d[$k] ?? null)) {
+                        $errors[$k] = "{$label} wajib diisi untuk menyelesaikan Proses GR.";
+                    }
+                }
+                if (! empty($d['gr_number']) && GoodsReceipt::query()->where('number', $d['gr_number'])->where('payment_term_id', '!=', $termId)->exists()) {
+                    $errors['gr_number'] = 'Nomor GR sudah dipakai tahap lain.';
+                }
+            }
+            if ($track === Track::Pasca && $v->stage_key === 'invoice' && $mode === 'complete' && ! empty($d['invoice_number'])
+                && Invoice::query()->where('number', $d['invoice_number'])->where('payment_term_id', '!=', $termId)->exists()) {
+                $errors['invoice_number'] = 'Nomor invoice sudah dipakai tahap lain.';
             }
             if ($errors) {
                 throw ValidationException::withMessages($errors);
@@ -208,11 +315,18 @@ class WorkflowService
                 $v->entered_at = $entered;
             }
             if (array_key_exists('pic_id', $d) && (int) ($d['pic_id'] ?? 0) !== (int) $v->pic_id) {
-                $this->audit->log($p->id, 'Tahap', $v->id, 'Ganti PIC', "PIC {$v->stage_name}", $v->pic?->name, optional(\App\Models\Pic::query()->find($d['pic_id']))->name);
+                $this->audit->log($p->id, 'Tahap', $v->id, 'Ganti PIC', "PIC {$v->stage_name}", $v->pic?->name, optional(Pic::query()->find($d['pic_id']))->name);
                 $v->pic_id = $d['pic_id'] ?: null;
             }
             $v->save();
 
+            if ($term && $v->stage_key === 'invoice' && (array_key_exists('bucket_code', $d) || array_key_exists('bucket_number', $d) || array_key_exists('bucket_link', $d))) {
+                $bucket = ['bucket_code' => $d['bucket_code'] ?? null, 'bucket_number' => $d['bucket_number'] ?? null, 'bucket_link' => $d['bucket_link'] ?? null];
+                if ($bucket['bucket_code'] !== $term->bucket_code || $bucket['bucket_number'] !== $term->bucket_number || $bucket['bucket_link'] !== $term->bucket_link) {
+                    $this->audit->log($p->id, 'Tahap Pembayaran', $term->id, 'Bucket invoicing', "Bucket Tahap {$term->seq}", trim(($term->bucket_code ?? '').' '.($term->bucket_number ?? '')) ?: null, trim(($bucket['bucket_code'] ?? '').' '.($bucket['bucket_number'] ?? '')) ?: null);
+                    $term->update($bucket);
+                }
+            }
             $msg = '';
             $after = null;
             switch ($mode) {
@@ -226,6 +340,21 @@ class WorkflowService
                     break;
 
                 case 'complete':
+                    if ($term && $v->stage_key === 'gr') {
+                        $gr = $term->goodsReceipt()->updateOrCreate([], [
+                            'status' => 'GR Terbit', 'number' => trim($d['gr_number']), 'gr_type' => $d['gr_type'], 'amount' => $d['gr_amount'],
+                            'link' => trim($d['gr_link']), 'gr_date' => $date, 'submitted_at' => $term->goodsReceipt?->submitted_at ?? $date, 'pic_id' => $v->pic_id,
+                        ]);
+                        $gr->beritaAcara()->syncWithoutDetaching($term->beritaAcara()->pluck('berita_acara.id')->all());
+                        $this->audit->log($p->id, 'Goods Receipt', $gr->id, 'GR terbit', "GR Tahap {$term->seq}", null, "{$gr->gr_type} {$gr->number} · ".number_format((float) $gr->amount, 0, ',', '.'));
+                    }
+                    if ($term && $v->stage_key === 'invoice' && ! empty($d['invoice_number'])) {
+                        $inv = $term->invoice()->updateOrCreate([], [
+                            'number' => trim($d['invoice_number']), 'date' => $d['invoice_date'] ?? $date,
+                            'amount' => $d['invoice_amount'] ?? $term->amount, 'status' => 'Submit Invoice', 'pic_id' => $v->pic_id,
+                        ]);
+                        $this->audit->log($p->id, 'Invoice', $inv->id, 'Catat invoice', "Invoice Tahap {$term->seq}", null, $inv->number);
+                    }
                     $this->closeVisit($v, $date, VisitStatus::Done, $activity);
                     $finalLabel = $track === Track::Pasca ? 'Dibayar' : ($amendmentId ? 'Amandemen Rilis' : ($p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis'));
                     $this->audit->log($p->id, 'Tahap', $v->id, 'Selesaikan tahap', $subject, $v->stage_name, $next['name'] ?? $finalLabel, $note ?: null);
@@ -272,6 +401,25 @@ class WorkflowService
                     $msg = "Pindah ke {$targetName}.";
                     break;
 
+                case 'rev_minor':
+                case 'rev_major':
+                    $minor = $mode === 'rev_minor';
+                    $label = $minor ? 'Revisi Minor' : 'Revisi Mayor';
+                    $this->closeVisit($v, $date, VisitStatus::Returned, null, $note);
+                    $v->update(['return_type' => $minor ? 'minor' : 'mayor']);
+                    $pic = $targetPic ?: (str_starts_with($first['key'], 'pengaju') ? $p->pic_pengaju_id : ($first['pic_id'] ?? null));
+                    $back = $this->startVisit($p, $first['key'], $date, $pic, 'Klarifikasi', "{$label} dari {$v->stage_name}: {$note}", $track, null, $amendmentId);
+                    if ($minor) {
+                        $back->update(['resume_key' => $v->stage_key]);
+                    }
+                    $cycle = StageVisit::query()->where('procurement_id', $p->id)->where('track', $track->value)
+                        ->where('amendment_id', $amendmentId)->where('return_type', 'mayor')->count() + 1;
+                    $this->audit->log($p->id, 'Tahap', $v->id, $label, $subject, $v->stage_name, $first['name'], $note);
+                    $msg = $minor
+                        ? "Revisi Minor: dikembalikan ke {$first['name']}. Setelah diperbaiki, proses langsung kembali ke {$v->stage_name}."
+                        : "Revisi Mayor: dikembalikan ke {$first['name']}. Approval diulang dari awal (siklus {$cycle}).";
+                    break;
+
                 case 'skip':
                     $this->closeVisit($v, $date, VisitStatus::Skipped, null, $note);
                     $this->audit->log($p->id, 'Tahap', $v->id, 'Lewati tahap', $subject, $v->stage_name, $next['name'] ?? 'Selesai', $note);
@@ -302,24 +450,6 @@ class WorkflowService
         }
         $this->startVisit($p, $key, Cal::today(), null, 'Klarifikasi', 'Tahap dibuka kembali.', Track::Pengadaan);
         $this->audit->log($p->id, 'Tahap', $p->code, 'Buka kembali tahap', null, null, $key);
-    }
-
-    /** @param array<int, array<string, mixed>> $list */
-    private function leavesBa(array $list, string $current, string $mode, ?string $target): bool
-    {
-        $ib = self::index($list, 'ba');
-        $iv = self::index($list, $current);
-        $it = $target ? self::index($list, $target) : -1;
-
-        return ($iv === $ib && in_array($mode, ['complete', 'move', 'skip'], true)) || ($iv < $ib && $mode === 'move' && $it > $ib);
-    }
-
-    /** Tahap pembayaran siap lanjut bila memiliki BA dan seluruh BA-nya TTD Selesai. */
-    public function termBaReady(PaymentTerm $t): bool
-    {
-        $bas = $t->beritaAcara()->with('rounds.signatories')->get();
-
-        return $bas->isNotEmpty() && $bas->every(fn ($b) => $b->status() === 'TTD Selesai');
     }
 
     /**
@@ -462,7 +592,7 @@ class WorkflowService
                 'requested_at' => $d['date'], 'stages' => $stages, 'change_types' => $d['change_types'], 'proposal' => $d['proposal'] ?? null,
             ]);
             if ($stages) {
-                $this->startVisit($p, $stages[0], $d['date'], $stages[0] === 'pengaju' ? $p->pic_pengaju_id : null, 'Review Dokumen', "Amandemen {$am->seq} diajukan: {$am->reason}", Track::Pengadaan, null, $am->id);
+                $this->startVisit($p, $stages[0], $d['date'], str_starts_with($stages[0], 'pengaju') ? $p->pic_pengaju_id : null, 'Review Dokumen', "Amandemen {$am->seq} diajukan: {$am->reason}", Track::Pengadaan, null, $am->id);
             }
             $this->audit->log($p->id, 'Amandemen', $am->id, 'Ajukan amandemen', "{$vc->kind} {$vc->number}", null, "Amandemen {$am->seq} · ".implode(', ', $d['change_types']), $am->reason);
             $p->touch();
@@ -481,18 +611,31 @@ class WorkflowService
         DB::transaction(function () use ($p, $am, $d) {
             $vc = $am->contract;
             $types = $d['change_types'];
-            $before = $after = [];
+            $rp = fn ($v) => 'Rp'.number_format((float) $v, 0, ',', '.');
+            $tgl = fn ($v) => $v ? Carbon::parse($v)->translatedFormat('d M Y') : '-';
+            // [kolom kontrak, label, nilai lama, nilai baru, format tampilan]
+            $fields = [];
             if (in_array('Nilai', $types, true)) {
-                $before += ['value_excl' => (float) $vc->value_excl, 'value_incl' => (float) $vc->value_incl];
-                $after += ['value_excl' => (float) $d['value_excl'], 'value_incl' => (float) $d['value_incl']];
+                $fields[] = ['value_excl', 'Nilai sebelum PPN', (float) $vc->value_excl, (float) $d['value_excl'], $rp];
+                $fields[] = ['value_incl', 'Nilai setelah PPN', (float) $vc->value_incl, (float) $d['value_incl'], $rp];
             }
             if (in_array('Jangka Waktu', $types, true)) {
-                $before['end_date'] = Cal::iso($vc->end_date);
-                $after['end_date'] = $d['end_date'];
+                $fields[] = ['end_date', 'Rencana selesai pekerjaan', Cal::iso($vc->end_date), $d['end_date'], $tgl];
             }
             if (in_array('Ruang Lingkup', $types, true)) {
-                $before['scope'] = $vc->scope;
-                $after['scope'] = $d['scope'];
+                $fields[] = ['scope', 'Ruang lingkup', (string) $vc->scope, (string) $d['scope'], fn ($v) => $v ?: '-'];
+            }
+            $changed = array_values(array_filter($fields, fn ($f) => (string) $f[2] !== (string) $f[3]));
+            $typesWithField = array_intersect($types, ['Nilai', 'Jangka Waktu', 'Ruang Lingkup']);
+            if ($typesWithField && ! $changed) {
+                throw ValidationException::withMessages(['change_types' => 'Belum ada nilai yang berubah. Isi nilai baru sesuai jenis perubahan, atau hapus jenis perubahan yang tidak dipakai.']);
+            }
+
+            $before = $after = [];
+            foreach ($changed as [$col, $label, $old, $new, $fmt]) {
+                $before[$label] = $fmt($old);
+                $after[$label] = $fmt($new);
+                $vc->{$col} = $new;
             }
             if (in_array('Termin', $types, true)) {
                 TermPlanHistory::query()->create([
@@ -505,12 +648,13 @@ class WorkflowService
                 'status' => AmendmentStatus::Released->value, 'number' => trim($d['number']), 'date' => $d['date'], 'change_types' => $types,
                 'description' => $d['description'], 'before' => $before, 'after' => $after, 'link' => $d['link'] ?? null,
             ]);
-            if ($after) {
-                $vc->update($after);
-            }
+            $vc->save();
             StageVisit::query()->where('amendment_id', $am->id)->where('status', VisitStatus::Running->value)->get()
                 ->each(fn (StageVisit $v) => $this->closeVisit($v, $d['date'], VisitStatus::Done, 'Amandemen Rilis'));
-            $this->audit->log($p->id, 'Amandemen', $am->id, "Amandemen {$am->seq} rilis", implode(', ', $types), json_encode($before), json_encode($after), $am->number);
+            $this->audit->log($p->id, 'Amandemen', $am->id, "Amandemen {$am->seq} rilis", 'Nomor amandemen', null, $am->number, $d['description']);
+            foreach ($changed as [, $label, $old, $new, $fmt]) {
+                $this->audit->log($p->id, 'Amandemen', $am->id, "Perubahan kontrak (Amandemen {$am->seq})", $label, $fmt($old), $fmt($new), $am->number);
+            }
             $this->ensureTermFlows($p);
             $p->touch();
         });

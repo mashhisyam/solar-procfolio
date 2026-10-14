@@ -1,0 +1,1261 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$procurement_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AmendmentController.php
+
+		-
+			message: '#^Call to an undefined method Laravel\\Socialite\\Contracts\\Provider\:\:scopes\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Auth/MicrosoftController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$beritaAcara\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$company\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kind\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$seq\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$signatories\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vendor\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:rounds\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:signatories\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:terms\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 4
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int\<0, max\>, pic_id\: int\<0, max\>, name\: mixed, title\: mixed, company\: mixed, status\: string, sent_at\: string\|null, signed_at\: string\|null, note\: string\|null\}, Closure\(App\\Models\\BaSignatory\)\: array\{id\: int\<0, max\>, pic_id\: int\<0, max\>, name\: mixed, title\: mixed, company\: mixed, status\: string, sent_at\: string\|null, signed_at\: string\|null, note\: string\|null\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int\<0, max\>, seq\: int\<0, max\>, sent_at\: string\|null, context\: string\|null, signatories\: Illuminate\\Support\\Collection\<int, array\{id\: int\<0, max\>, pic_id\: int\<0, max\>, name\: mixed, title\: mixed, company\: mixed, status\: string, sent_at\: string\|null, signed_at\: string\|null, note\: string\|null\}\>\}, Closure\(App\\Models\\BaRound\)\: array\{id\: int\<0, max\>, seq\: int\<0, max\>, sent_at\: string\|null, context\: string\|null, signatories\: Illuminate\\Support\\Collection\<int, array\{id\: int\<0, max\>, pic_id\: int\<0, max\>, name\: mixed, title\: mixed, company\: mixed, status\: string, sent_at\: string\|null, signed_at\: string\|null, note\: string\|null\}\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Parameter \#1 \$p of method App\\Http\\Controllers\\BeritaAcaraController\:\:formProps\(\) expects App\\Models\\Procurement, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>seq" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/BeritaAcaraController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$method\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pengaju_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$rab_value\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$requested_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$spp_number\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$terms\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\VendorContract\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/ContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/CustomerContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/CustomerContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$spp_number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/CustomerContractController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\CustomerContract\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/CustomerContractController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/CustomerContractController.php
+
+		-
+			message: '#^Parameter \#1 \$p of method App\\Services\\ProcurementInsight\:\:row\(\) expects App\\Models\\Procurement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/CustomerContractController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$doc_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/DocumentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/DocumentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/DocumentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/PaymentTermController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/PaymentTermController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$value_incl\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/PaymentTermController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:beritaAcara\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/PaymentTermController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/PksController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$effective_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/PksController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/PksController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$new_end_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/PksController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Pks\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/PksController.php
+
+		-
+			message: '#^Parameter \#1 \$p of method App\\Services\\ProcurementInsight\:\:row\(\) expects App\\Models\\Procurement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/PksController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amendments\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$budget_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$date\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$description\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$price\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$qty\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Support\\HigherOrderTapProxy\<Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\|Illuminate\\Database\\Eloquent\\Model\>\:\:update\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\CustomerContract\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Pks\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/ProcurementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/RkapController.php
+
+		-
+			message: '#^Parameter \#1 \$p of method App\\Services\\ProcurementInsight\:\:row\(\) expects App\\Models\\Procurement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/RkapController.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/RkapController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$contract\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$procurement_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:beritaAcara\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\PaymentTerm\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/SettlementController.php
+
+		-
+			message: '#^Method App\\Models\\BeritaAcara\:\:activeRound\(\) should return App\\Models\\BaRound\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/BeritaAcara.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$new_scope\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Pks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Pks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$seq\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Pks.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:filter\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|null, Closure\(App\\Models\\PksAmendment\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/Pks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amendments\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Procurement.php
+
+		-
+			message: '#^Method App\\Models\\Procurement\:\:currentApprovalVisit\(\) should return App\\Models\\StageVisit\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/Procurement.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amendments\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$category\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$completed_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$date\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$entered_at\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$goodsReceipt\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$invoice\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kind\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$last_update_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$note\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paid_at\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sent_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$seq\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$signatories\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$value_incl\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vendor\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Expression "\$add\(\$lvl \=\=\= ''bad'' \? ''dur\-bad'' \: ''dur\-warn'', \$lvl, "\{\$v\-\>stage_name\} \{\$days\} hari", ''proses''\)" on a separate line does not do anything\.$#'
+			identifier: expr.resultUnused
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Expression "\$add\(''basis'', ''warn'', ''Belum ada perjanjian pelanggan'', ''ringkasan''\)" on a separate line does not do anything\.$#'
+			identifier: expr.resultUnused
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Expression "\$add\(''doc'', ''warn'', ''Dokumen wajib belum lengkap\: '' \. implode\('', '', \$missing\), ''dokumen''\)" on a separate line does not do anything\.$#'
+			identifier: expr.resultUnused
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Expression "\$add\(''late'', ''bad'', "Tahap \{\$f\[''t''\]\-\>seq\} melewati rencana selesai \{\$late\} hari", ''pasca''\)" on a separate line does not do anything\.$#'
+			identifier: expr.resultUnused
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Expression "\$add\(''no\-update'', ''warn'', "Tidak diperbarui \{\$lu\} hari kerja", \$inPost \? ''pasca'' \: ''proses''\)" on a separate line does not do anything\.$#'
+			identifier: expr.resultUnused
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Expression "\$add\(''noterm'', ''info'', ''Tahapan pembayaran belum dibuat'', ''pasca''\)" on a separate line does not do anything\.$#'
+			identifier: expr.resultUnused
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Expression "\$add\(''soon'', ''warn'', ''Batas pekerjaan tahap '' \. \$f\[''t''\]\-\>seq \. '' '' \. \(\$late \=\=\= 0 \? ''hari ini'' \: \-\$late \. '' hari lagi''\), ''pasca''\)" on a separate line does not do anything\.$#'
+			identifier: expr.resultUnused
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Method App\\Services\\ProcurementInsight\:\:currentApproval\(\) should return App\\Models\\StageVisit\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Method App\\Services\\ProcurementInsight\:\:termFlows\(\) should return Illuminate\\Support\\Collection\<int, array\{t\: App\\Models\\PaymentTerm, visits\: Illuminate\\Support\\Collection, cur\: App\\Models\\StageVisit\|null, plan\: array\|null, paid\: bool, scheduled\: bool\}\> but returns Illuminate\\Support\\Collection\<int, array\{t\: App\\Models\\PaymentTerm, visits\: Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>, cur\: Illuminate\\Database\\Eloquent\\Model\|null, plan\: array\{start\: string, end\: string\|null, days\: int\|null\}\|null, paid\: bool, scheduled\: bool\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$ba of method App\\Services\\ProcurementInsight\:\:baInfo\(\) expects App\\Models\\BeritaAcara, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{t\: App\\Models\\PaymentTerm, visits\: Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>, cur\: Illuminate\\Database\\Eloquent\\Model\|null, plan\: array\{start\: string, end\: string\|null, days\: int\|null\}\|null, paid\: bool, scheduled\: bool\}, Closure\(App\\Models\\PaymentTerm\)\: array\{t\: App\\Models\\PaymentTerm, visits\: Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>, cur\: Illuminate\\Database\\Eloquent\\Model\|null, plan\: array\{start\: string, end\: string\|null, days\: int\|null\}\|null, paid\: bool, scheduled\: bool\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<\(int\|string\),mixed\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,array\<string, App\\Models\\PaymentTerm\|App\\Models\\StageVisit\|array\|bool\|Illuminate\\Support\\Collection\|null\>\>\:\:first\(\) expects \(callable\(array\{t\: App\\Models\\PaymentTerm, visits\: Illuminate\\Support\\Collection, cur\: App\\Models\\StageVisit\|null, plan\: array\|null, paid\: bool, scheduled\: bool\}, int\)\: bool\)\|null, Closure\(mixed\)\: \(App\\Models\\StageVisit\|null\) given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$v of method App\\Services\\ProcurementInsight\:\:scheduled\(\) expects App\\Models\\StageVisit\|null, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$v of method App\\Services\\ProcurementInsight\:\:scheduled\(\) expects App\\Models\\StageVisit\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Parameter \#1 \$v of method App\\Services\\ProcurementInsight\:\:visitDays\(\) expects App\\Models\\StageVisit, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>cycle" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>seq" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>signatories" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value_incl" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ProcurementInsight.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amendments\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$available\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$beritaAcara\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$bucket_code\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$bucket_link\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$bucket_number\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$budgetCode\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$budget_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$customer\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$date\.$#'
+			identifier: property.notFound
+			count: 6
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$description\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$doc_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$end_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$goodsReceipt\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$gr_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$gr_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 11
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$invoice\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kickoff_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kind\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$link\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$note\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 9
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$partner\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$payment\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pic\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pic_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$price\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$qty\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$required\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$revenue\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$scope\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$seq\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$source_app\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$submitted_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$terms\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$title\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$value_excl\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$value_incl\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vendor\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vendor_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:effective\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:status\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:total\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\AuditLog\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Pic\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 4
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int\<0, max\>, doc_type\: string, number\: string\|null, title\: string\|null, date\: string\|null, required\: bool, available\: bool, link\: string\|null, note\: string\|null, customer\: mixed\}, Closure\(App\\Models\\Document\)\: array\{id\: int\<0, max\>, doc_type\: string, number\: string\|null, title\: string\|null, date\: string\|null, required\: bool, available\: bool, link\: string\|null, note\: string\|null, customer\: mixed\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{id\: int\<0, max\>, type\: string, number\: string\|null, title\: string, date\: string\|null, link\: string\|null, status\: string, round\: int, signed\: int, total\: int, days\: int, term_ids\: Illuminate\\Support\\Collection\<int, mixed\>, term_seqs\: Illuminate\\Support\\Collection\<int, mixed\>\}, Closure\(App\\Models\\BeritaAcara\)\: array\{id\: int\<0, max\>, type\: string, number\: string\|null, title\: string, date\: string\|null, link\: string\|null, status\: string, round\: int, signed\: int, total\: int, days\: int, term_ids\: Illuminate\\Support\\Collection\<int, mixed\>, term_seqs\: Illuminate\\Support\\Collection\<int, mixed\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,array\<string, App\\Models\\PaymentTerm\|App\\Models\\StageVisit\|array\|bool\|Illuminate\\Support\\Collection\|null\>\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ProcurementPresenter.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$end_date\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$gr_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 9
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kickoff_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kind\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paid_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$planned_end\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$scope\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$seq\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$submitted_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$value_excl\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$value_incl\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:amendments\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:beritaAcara\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:payment\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>stages" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>submitted_at" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/WorkflowService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kind\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stage_key\.$#'
+			identifier: property.notFound
+			count: 2
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vendor\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:rounds\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: database/seeders/DemoSeeder.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:terms\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: database/seeders/DemoSeeder.php

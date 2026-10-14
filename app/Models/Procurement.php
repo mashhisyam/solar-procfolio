@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Procurement extends Model
 {
     protected $fillable = [
-        'code', 'spp_number', 'spp_date', 'title', 'summary', 'method', 'proc_type', 'proc_method', 'priority',
+        'code', 'spp_number', 'spp_date', 'title', 'summary', 'method', 'proc_type', 'category', 'proc_method', 'priority',
         'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'registered_at', 'rab_value', 'pks_id', 'bak_number',
         'bak_date', 'vendor_id', 'workflow', 'is_draft', 'cancelled_at', 'cancel_reason', 'created_by',
     ];

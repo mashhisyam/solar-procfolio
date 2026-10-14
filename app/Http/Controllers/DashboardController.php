@@ -27,10 +27,11 @@ class DashboardController extends Controller
                 'attention' => $rows->filter(fn ($r) => count($r['alerts']) > 0)->count(),
                 'unpaid_terms' => $unpaid->count(),
                 'unpaid_value' => (float) $unpaid->sum('amount'),
+                'done' => $procs->filter(fn ($p) => $insight->status($p) === 'Selesai')->count(),
             ],
             'filters' => [
                 'pengaju' => $rows->pluck('pengaju_name')->unique()->sort()->values(),
-                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'number']),
+                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'kind', 'number', 'revenue'])->map(fn ($c) => [...$c->only(['id', 'kind', 'number']), 'revenue' => (float) $c->revenue]),
             ],
         ]);
     }

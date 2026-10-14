@@ -5,7 +5,7 @@ import { Button, Card, EmptyState, Input, SearchInput, Segmented, Select } from 
 import { PageHeader, ProcTable, SortKey, sortRows } from '@/Components/common';
 import type { PageProps, ProcRow } from '@/types';
 
-interface Props { rows: ProcRow[]; filters: { procMethods: string[]; customerContracts: { id: number; number: string }[]; stages: Record<string, { key: string; name: string }[]> } }
+interface Props { rows: ProcRow[]; filters: { procMethods: string[]; customerContracts: { id: number; kind: string; number: string }[]; stages: Record<string, { key: string; name: string }[]> } }
 const SEGMENTS = [{ value: 'aktif', label: 'Semua aktif' }, { value: 'pengadaan', label: 'Proses Pengadaan' }, { value: 'pasca', label: 'Pasca Pengadaan' }, { value: 'amandemen', label: 'Amandemen' }, { value: 'selesai', label: 'Selesai' }, { value: 'draft', label: 'Draft' }, { value: 'all', label: 'Semua' }];
 const PAGE = 15;
 
@@ -60,7 +60,7 @@ export default function ProcurementIndex({ rows, filters }: Props) {
           <div className="w-[140px]"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} aria-label="Prioritas"><option value="">Prioritas</option><option>Urgent</option><option>Normal</option></Select></div>
           <div className="w-[190px]"><Select value={f.stage} onChange={(e) => set('stage', e.target.value)} aria-label="Aliran data"><option value="">Semua aliran data</option>{stageOpts.map(([scheme, list]) => <optgroup key={scheme} label={scheme === 'Pasca' ? 'Pasca Pengadaan' : `Proses ${scheme}`}>{list.map((s) => <option key={scheme + s.key} value={s.key}>{s.name}</option>)}</optgroup>)}</Select></div>
           <div className="w-[190px]"><Select value={f.procMethod} onChange={(e) => set('procMethod', e.target.value)} aria-label="Metode pengadaan"><option value="">Semua metode</option>{filters.procMethods.map((m) => <option key={m}>{m}</option>)}</Select></div>
-          <div className="w-[180px]"><Select value={f.bakb} onChange={(e) => set('bakb', e.target.value)} aria-label="BAKB"><option value="">Semua BAKB</option>{filters.customerContracts.map((c) => <option key={c.id} value={c.id}>{c.number}</option>)}</Select></div>
+          <div className="w-[180px]"><Select value={f.bakb} onChange={(e) => set('bakb', e.target.value)} aria-label="Perjanjian pelanggan"><option value="">Semua perjanjian pelanggan</option>{filters.customerContracts.map((c) => <option key={c.id} value={c.id}>{c.kind} · {c.number}</option>)}</Select></div>
           <label className="flex items-center gap-1.5 text-[12px] text-mute">Registrasi<Input type="date" className="w-[150px]" value={f.from} onChange={(e) => set('from', e.target.value)} /></label>
           <label className="flex items-center gap-1.5 text-[12px] text-mute">s.d.<Input type="date" className="w-[150px]" value={f.to} onChange={(e) => set('to', e.target.value)} /></label>
           {(q || Object.values(f).some(Boolean)) && <Button variant="ghost" icon={RotateCcw} onClick={() => { setQ(''); setF({ method: '', priority: '', stage: '', procMethod: '', bakb: '', from: '', to: '' }); }}>Reset</Button>}

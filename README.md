@@ -73,21 +73,6 @@ docker compose exec app php artisan migrate --seed
 
 Aplikasi berjalan di `http://localhost:8080` (ubah lewat `APP_PORT`). Container `worker` menjalankan queue dan scheduler, termasuk email ringkasan harian pada hari kerja pukul 07:30.
 
-## SSO Microsoft Entra ID
-
-1. Daftarkan aplikasi di Microsoft Entra ID, lalu catat Client ID, Client Secret dan Tenant ID.
-2. Tambahkan redirect URI: `https://<domain-procfolio>/auth/microsoft/callback`.
-3. Isi `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` dan `AZURE_REDIRECT_URI` di `.env`.
-4. Isi `PROCFOLIO_ADMIN_EMAILS` dengan email yang otomatis menjadi admin saat login pertama.
-
-Akun dibuat otomatis saat login SSO pertama dengan peran User Pengaju. Admin dapat mengubah peran di Master & Konfigurasi.
-
-| Peran | Hak |
-| --- | --- |
-| Admin | Semua, termasuk Master & Konfigurasi |
-| User Pengaju | Membuat dan memperbarui data pengadaan |
-| Pemantau | Hanya membaca |
-
 ## Backup
 
 `docker/backup.sh` menjalankan `pg_dump` harian dan menyimpannya 30 hari. Pasang di cron host:

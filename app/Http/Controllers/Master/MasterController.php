@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
-use App\Models\BudgetCode;
 use App\Models\Company;
 use App\Models\Holiday;
 use App\Models\MasterItem;
@@ -31,7 +30,6 @@ class MasterController extends Controller
             'tab' => $request->query('tab', 'organisasi'),
             'companies' => Company::query()->orderBy('type')->orderBy('name')->get(),
             'pics' => Pic::query()->with('company:id,name')->orderBy('name')->get(),
-            'budgetCodes' => BudgetCode::query()->withCount('procurements')->orderBy('code')->get(),
             'items' => MasterItem::query()->orderBy('group')->orderBy('sort')->orderBy('label')->get()->groupBy('group'),
             'groups' => MasterItem::GROUPS,
             'templates' => collect(WorkflowTemplate::SCHEMES)->mapWithKeys(fn ($s) => [$s => WorkflowTemplate::query()->where('scheme', $s)->orderBy('sort')->get()]),
@@ -59,20 +57,6 @@ class MasterController extends Controller
         $pic ? $pic->update($d) : Pic::query()->create($d);
 
         return $this->done('PIC disimpan.');
-    }
-
-    public function saveBudgetCode(Request $request, ?BudgetCode $budgetCode = null): RedirectResponse
-    {
-        $d = $request->validate([
-            'coa' => ['required', 'string', 'max:30'], 'cost_center' => ['required', 'string'],
-            'code' => ['required', 'string', 'max:40', Rule::unique('budget_codes', 'code')->ignore($budgetCode?->id)],
-            'program' => ['required', 'string'], 'klasifikasi' => ['required', 'string', 'max:60'], 'active' => ['boolean'],
-        ]);
-        $d = [...$d, 'code' => strtoupper(trim($d['code'])), 'program' => mb_strtoupper(trim($d['program'])), 'klasifikasi' => mb_strtoupper(trim($d['klasifikasi']))];
-        $budgetCode ? $budgetCode->update($d) : BudgetCode::query()->create($d);
-        $this->audit->log(null, 'Master', $d['code'], $budgetCode ? 'Ubah kode anggaran' : 'Tambah kode anggaran', null, null, $d['program']);
-
-        return $this->done('Kode anggaran disimpan.');
     }
 
     public function saveItem(Request $request, ?MasterItem $item = null): RedirectResponse

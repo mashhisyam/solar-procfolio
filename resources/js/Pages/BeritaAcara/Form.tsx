@@ -9,15 +9,15 @@ interface Props {
   procurement: { code: string; spp_number: string | null; title: string; sub_bidang: string | null; method: string };
   ba: { id: number; type: string; number: string | null; title: string; sub_bidang: string | null; contract_ref_type: string | null; contract_ref_number: string | null; director_internal: string | null; director_external: string | null; first_party: string | null; second_party: string | null; link: string | null; date: string | null; term_ids: number[] } | null;
   defaults: { contract_ref_type: string; contract_ref_number: string | null; first_party: string; second_party: string | null; winner_locked: boolean };
-  terms: { id: number; seq: number; name: string }[]; types: string[]; pics: Pic[];
+  terms: { id: number; seq: number; name: string }[]; types: string[]; pics: Pic[]; presetTermId?: number | null;
 }
-export default function BaForm({ procurement: p, ba, defaults, terms, types, pics }: Props) {
+export default function BaForm({ procurement: p, ba, defaults, terms, types, pics, presetTermId }: Props) {
   const form = useForm({
     type: ba?.type || types[0] || 'BAPS', number: ba?.number || '', title: ba?.title || '', sub_bidang: ba?.sub_bidang || p.sub_bidang || '', date: ba?.date || '',
     contract_ref_type: ba?.contract_ref_type || defaults.contract_ref_type, contract_ref_number: ba?.contract_ref_number || defaults.contract_ref_number || '',
     director_internal: ba?.director_internal || '', director_external: ba?.director_external || '', first_party: ba?.first_party || defaults.first_party,
     second_party: defaults.winner_locked ? defaults.second_party || '' : ba?.second_party || defaults.second_party || '', link: ba?.link || '',
-    term_ids: ba?.term_ids || [] as number[], signatory_ids: [] as number[], sent_at: '',
+    term_ids: ba?.term_ids || (presetTermId ? [presetTermId] : []) as number[], signatory_ids: [] as number[], sent_at: '',
   });
   const d = form.data; const e = form.errors as Record<string, string>;
   const save = () => (ba ? form.put(`/ba/${ba.id}`) : form.post(`/pengadaan/${p.code}/ba`));
@@ -38,7 +38,7 @@ export default function BaForm({ procurement: p, ba, defaults, terms, types, pic
         <Field label="Direksi Pekerjaan Eksternal"><Input list="pic-names" value={d.director_external} onChange={(x) => form.setData('director_external', x.target.value)} /></Field>
         <Field label="Pihak Pertama"><Input value={d.first_party} onChange={(x) => form.setData('first_party', x.target.value)} /></Field>
         <Field label="Pihak Kedua" hint={defaults.winner_locked ? 'Vendor pemenang dari SP2K/PO.' : undefined}><Input value={d.second_party} disabled={defaults.winner_locked} onChange={(x) => form.setData('second_party', x.target.value)} /></Field>
-        <Field label="Tahap pembayaran terkait" className="md:col-span-2"><MultiSelect options={terms.map((t) => ({ value: String(t.id), label: `Tahap ${t.seq}`, sub: t.name }))} value={d.term_ids.map(String)} onChange={(v) => form.setData('term_ids', v.map(Number))} /></Field>
+        <Field label="Tahap pembayaran terkait" required className="md:col-span-2" hint="Satu tahap boleh memiliki lebih dari satu BA."><MultiSelect options={terms.map((t) => ({ value: String(t.id), label: `Tahap ${t.seq}`, sub: t.name }))} value={d.term_ids.map(String)} onChange={(v) => form.setData('term_ids', v.map(Number))} /></Field>
         {!ba && <><Field label="PIC sirkuler TTD" className="md:col-span-2" hint="Penandatanganan berjalan paralel tanpa urutan."><MultiSelect options={pics.map((x) => ({ value: String(x.id), label: x.name, sub: x.title || x.role || '' }))} value={d.signatory_ids.map(String)} onChange={(v) => form.setData('signatory_ids', v.map(Number))} /></Field>
           <Field label="Tanggal kirim sirkuler"><Input type="date" value={d.sent_at} onChange={(x) => form.setData('sent_at', x.target.value)} /></Field></>}
         <Field label="Tautan dokumen BA" className="md:col-span-2" error={e.link}><LinkField value={d.link} onChange={(v) => form.setData('link', v)} /></Field>

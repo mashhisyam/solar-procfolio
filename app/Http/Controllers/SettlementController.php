@@ -3,12 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Enums\GrStatus;
+use App\Enums\VisitStatus;
+use App\Models\GoodsReceipt;
 use App\Models\Invoice;
 use App\Models\PaymentTerm;
 use App\Models\Procurement;
-use App\Rules\DocumentLink;
-use App\Enums\VisitStatus;
 use App\Models\StageVisit;
+use App\Rules\DocumentLink;
 use App\Services\AuditLogger;
 use App\Services\WorkflowService;
 use App\Support\WorkdayCalendar as Cal;
@@ -47,6 +48,8 @@ class SettlementController extends Controller
             'number' => ['required_if:status,GR Terbit', 'nullable', 'string', 'max:120', Rule::unique('goods_receipts', 'number')->ignore($term->goodsReceipt?->id)],
             'submitted_at' => ['required_unless:status,Belum Diajukan', 'nullable', 'date'],
             'gr_date' => ['required_if:status,GR Terbit', 'nullable', 'date'],
+            'gr_type' => ['nullable', Rule::in(GoodsReceipt::TYPES)],
+            'amount' => ['nullable', 'numeric', 'gt:0'],
             'source_app' => ['nullable', 'string', 'max:60'],
             'pic_id' => ['nullable', 'exists:pics,id'],
             'link' => ['nullable', new DocumentLink],

@@ -11,7 +11,7 @@ class StageVisit extends Model
 {
     protected $fillable = [
         'procurement_id', 'track', 'term_id', 'amendment_id', 'stage_key', 'stage_name', 'cycle', 'entered_at',
-        'completed_at', 'status', 'pic_id', 'activity', 'note', 'return_reason', 'last_update_at',
+        'completed_at', 'status', 'pic_id', 'activity', 'note', 'return_reason', 'return_type', 'resume_key', 'last_update_at',
     ];
 
     protected $casts = ['entered_at' => 'date', 'completed_at' => 'date', 'last_update_at' => 'date'];
