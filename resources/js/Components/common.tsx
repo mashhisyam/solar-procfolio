@@ -40,21 +40,57 @@ export function DeadlinePill({ date, warnDays = 7 }: { date?: string | null; war
   return <span className={cx('num inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-semibold', tone)} title={`Batas pekerjaan ${fmtDate(date)}`}><CalendarClock size={12} aria-hidden />{left < 0 ? `Lewat ${-left} hari` : left === 0 ? 'Batas hari ini' : `${left} hari lagi`}</span>;
 }
 
+type StepGroup = { name: string; nodes: StepNode[] };
+function groupNodes(nodes: StepNode[]): StepGroup[] {
+  const out: StepGroup[] = [];
+  nodes.forEach((n) => {
+    const last = out[out.length - 1];
+    if (n.group && last && last.nodes[0].group === n.group) last.nodes.push(n);
+    else out.push({ name: n.group || n.name, nodes: [n] });
+  });
+  return out;
+}
+function groupState(g: StepGroup): StepNode['state'] {
+  const st = g.nodes.map((n) => n.state);
+  if (st.includes('current')) return 'current';
+  if (st.every((x) => x === 'done' || x === 'skipped')) return st.every((x) => x === 'skipped') ? 'skipped' : 'done';
+  if (st.includes('returned')) return 'returned';
+  if (st.some((x) => x === 'done' || x === 'skipped')) return 'current';
+  return 'pending';
+}
+
+/**
+ * Stepper berkelompok: tahap berjenjang (mis. User → Manager → VP Pengaju) tampil sebagai satu simpul
+ * dengan titik sub-tahap. Tahap yang dilewati tetap hijau dengan keterangan "Dilewati".
+ */
 export function Stepper({ nodes, compact }: { nodes: StepNode[]; compact?: boolean }) {
+  const groups = groupNodes(nodes);
   return (
     <ol className={cx('flex w-full items-start', compact ? 'gap-1' : 'gap-2')}>
-      {nodes.map((n, i) => {
-        const dot = { done: 'bg-ok text-white border-ok', current: 'bg-brand text-white border-brand ring-4 ring-brand/15', returned: 'bg-warnsoft text-warn border-warn', skipped: 'bg-surface text-mute border-dashed border-line', pending: 'bg-surface text-mute border-line' }[n.state];
-        const Icon = n.state === 'done' ? CheckCircle2 : n.state === 'skipped' ? SkipForward : n.state === 'returned' ? Undo2 : n.state === 'current' ? Clock : Circle;
+      {groups.map((g, i) => {
+        const state = groupState(g);
+        const cur = g.nodes.find((n) => n.state === 'current');
+        const dot = { done: 'bg-ok text-white border-ok', skipped: 'bg-ok text-white border-ok', current: 'bg-brand text-white border-brand ring-4 ring-brand/15', returned: 'bg-warnsoft text-warn border-warn', pending: 'bg-surface text-mute border-line' }[state];
+        const Icon = state === 'done' || state === 'skipped' ? CheckCircle2 : state === 'returned' ? Undo2 : state === 'current' ? Clock : Circle;
+        const lastDone = [...g.nodes].reverse().find((n) => n.state === 'done' && n.date);
+        const sub = state === 'skipped' ? 'Dilewati'
+          : cur ? (g.nodes.length > 1 ? cur.name : '') + (cur.scheduled ? ` · mulai ${fmtDate(cur.date)}` : cur.days !== null ? `${g.nodes.length > 1 ? ' · ' : ''}${cur.days} hari kerja` : '')
+          : lastDone ? fmtDate(lastDone.date) : '–';
+        const cycles = Math.max(...g.nodes.map((n) => n.cycles));
         return (
-          <li key={n.key} className="relative flex min-w-0 flex-1 flex-col items-center text-center">
-            {i < nodes.length - 1 && <span className={cx('absolute left-1/2 top-[13px] h-0.5 w-full', n.state === 'done' || n.state === 'skipped' ? 'bg-ok/50' : 'bg-line')} />}
+          <li key={g.name + i} className="relative flex min-w-0 flex-1 flex-col items-center text-center">
+            {i < groups.length - 1 && <span className={cx('absolute left-1/2 top-[13px] h-0.5 w-full', state === 'done' || state === 'skipped' ? 'bg-ok/50' : 'bg-line')} />}
             <span className={cx('relative z-[1] flex h-7 w-7 items-center justify-center rounded-full border-2', dot)} aria-hidden><Icon size={14} strokeWidth={2.4} /></span>
-            <span className={cx('mt-1.5 text-[12.5px] font-bold', n.state === 'skipped' ? 'text-mute line-through decoration-1' : 'text-ink')}>{n.name}</span>
+            <span className="mt-1.5 text-[12.5px] font-bold text-ink">{g.name}</span>
+            {g.nodes.length > 1 && (
+              <span className="mt-1 flex items-center gap-[3px]" aria-label={g.nodes.map((n) => `${n.name}: ${n.state}`).join(', ')}>
+                {g.nodes.map((n) => <span key={n.key} title={`${n.name}${n.state === 'skipped' ? ' (dilewati)' : ''}`} className={cx('h-1.5 w-3 rounded-full', n.state === 'done' || n.state === 'skipped' ? 'bg-ok' : n.state === 'current' ? 'bg-brand' : n.state === 'returned' ? 'bg-warn' : 'bg-line')} />)}
+              </span>
+            )}
             {!compact && (
-              <span className="text-[11.5px] text-mute">
-                {n.state === 'skipped' ? 'Dilewati' : n.scheduled ? `mulai ${fmtDate(n.date)}` : n.state === 'current' && n.days !== null ? `${n.days} hari kerja` : n.date ? fmtDate(n.date) : '–'}
-                {n.cycles > 1 && <span className="ml-1 font-semibold text-warn">· {n.cycles} siklus</span>}
+              <span className="mt-0.5 text-[11.5px] text-mute">
+                {sub}
+                {cycles > 1 && <span className="ml-1 font-semibold text-warn">· {cycles} siklus</span>}
               </span>
             )}
           </li>
@@ -135,7 +171,8 @@ export function ProcLink({ code, spp, tab }: { code: string; spp?: string | null
 }
 
 export function PicSelect({ value, onChange, pics, roles, placeholder = 'Pilih PIC' }: { value?: number | null; onChange: (v: number | null) => void; pics: Pic[]; roles?: string[]; placeholder?: string }) {
-  const pref = roles?.length ? pics.filter((p) => p.role && roles.includes(p.role)) : [];
+  const norm = (x: string) => x.trim().toLowerCase();
+  const pref = roles?.length ? pics.filter((p) => p.role && roles.map(norm).includes(norm(p.role))) : [];
   const rest = pics.filter((p) => !pref.includes(p));
   return (
     <Select value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>

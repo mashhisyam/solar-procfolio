@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, LayoutDashboard, ListChecks, Handshake, ScrollText, FileSignature, FileStack, PenLine, Receipt, Settings2, Moon, Sun, Menu as MenuIcon, X, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowLeft, Landmark, LayoutDashboard, ListChecks, Handshake, ScrollText, FileSignature, FileStack, PenLine, Receipt, Settings2, Moon, Sun, Menu as MenuIcon, X, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cx } from '@/Components/ui';
 import { Toaster } from '@/Components/common';
 import type { PageProps } from '@/types';
 
 const NAV: { group: string; admin?: boolean; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
-  { group: 'Monitoring', items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, { href: '/pengadaan', label: 'Daftar Pengadaan', icon: ListChecks }] },
-  { group: 'Referensi kontrak', items: [{ href: '/bakb', label: 'BAKB / Kontrak Pelanggan', icon: Handshake }, { href: '/pks', label: 'PKS & Amandemen', icon: ScrollText }, { href: '/kontrak', label: 'Daftar SP2K/PO', icon: FileSignature }] },
+  { group: 'Monitoring', items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, { href: '/pengadaan', label: 'Daftar Pengadaan', icon: ListChecks }, { href: '/rkap', label: 'RKAP', icon: Landmark }] },
+  { group: 'Daftar Dokumen', items: [{ href: '/bakb', label: 'Perjanjian Pelanggan', icon: Handshake }, { href: '/pks', label: 'PKS & Amandemen', icon: ScrollText }, { href: '/kontrak', label: 'Daftar SP2K/PO', icon: FileSignature }] },
   { group: 'Register', items: [{ href: '/dokumen', label: 'Dokumen', icon: FileStack }, { href: '/ba', label: 'Berita Acara', icon: PenLine }, { href: '/tahapan', label: 'Tahapan, GR & Invoice', icon: Receipt }] },
   { group: 'Pengaturan', admin: true, items: [{ href: '/master', label: 'Master & Konfigurasi', icon: Settings2 }] },
 ];

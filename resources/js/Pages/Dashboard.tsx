@@ -7,7 +7,7 @@ import { fmtDateLong, rpShort } from '@/lib/format';
 import type { PageProps, ProcRow } from '@/types';
 import { usePage } from '@inertiajs/react';
 
-interface Props { rows: ProcRow[]; kpi: { active: number; spp: number; kemitraan: number; urgent: number; attention: number; unpaid_terms: number; unpaid_value: number }; filters: { pengaju: string[]; customerContracts: { id: number; number: string }[] } }
+interface Props { rows: ProcRow[]; kpi: { active: number; spp: number; kemitraan: number; urgent: number; attention: number; unpaid_terms: number; unpaid_value: number }; filters: { pengaju: string[]; customerContracts: { id: number; kind: string; number: string }[] } }
 
 export default function Dashboard({ rows, kpi, filters }: Props) {
   const { app, auth } = usePage<PageProps>().props;
@@ -30,7 +30,7 @@ export default function Dashboard({ rows, kpi, filters }: Props) {
         <div className="w-[160px]"><Select value={f.method} onChange={(e) => set('method', e.target.value)} aria-label="Skema"><option value="">Semua skema</option><option>SPP</option><option>Kemitraan</option></Select></div>
         <div className="w-[165px]"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} aria-label="Prioritas"><option value="">Semua prioritas</option><option>Urgent</option><option>Normal</option></Select></div>
         <div className="w-[200px]"><Select value={f.pengaju} onChange={(e) => set('pengaju', e.target.value)} aria-label="User Pengaju"><option value="">Semua User Pengaju</option>{filters.pengaju.map((x) => <option key={x}>{x}</option>)}</Select></div>
-        <div className="w-[200px]"><Select value={f.bakb} onChange={(e) => set('bakb', e.target.value)} aria-label="BAKB/Kontrak pelanggan"><option value="">Semua BAKB/Kontrak</option>{filters.customerContracts.map((c) => <option key={c.id} value={c.id}>{c.number}</option>)}</Select></div>
+        <div className="w-[200px]"><Select value={f.bakb} onChange={(e) => set('bakb', e.target.value)} aria-label="Perjanjian pelanggan"><option value="">Semua perjanjian pelanggan</option>{filters.customerContracts.map((c) => <option key={c.id} value={c.id}>{c.kind} · {c.number}</option>)}</Select></div>
         {hasFilter && <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => { setF({ method: '', priority: '', pengaju: '', bakb: '' }); setCard(''); }}>Reset</Button>}
       </div>
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

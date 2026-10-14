@@ -19,7 +19,7 @@ interface Props {
     candidate_vendors: { id: number; name: string }[]; vendor_id: number | null;
     budget_codes: { id: number; coa: string; cost_center: string; code: string; program: string; klasifikasi: string }[];
     rab_items: { id: number; description: string; budget_type: string; budget_code: string | null; program: string | null; qty: number; unit: string; price: number; total: number }[];
-    customer_contracts: { id: number; number: string; title: string; customer: string | null; link: string | null }[];
+    customer_contracts: { id: number; kind: string; number: string; title: string; customer: string | null; link: string | null }[];
   };
   header: ProcRow; alerts: Alert[];
   approval: { nodes: StepNode[]; history: HistoryVisit[]; current: CurrentVisit | null; stages: StageDef[]; all_stages: StageDef[]; locked: boolean; can_reopen: boolean };
@@ -28,7 +28,7 @@ interface Props {
     amendments: { id: number; seq: number; status: string; reason: string; requested_at: string | null; number: string | null; date: string | null; change_types: string[]; description: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; proposal: string | null; link: string | null }[] } | null;
   terms: Term[]; pasca_stages: StageDef[]; documents: Doc[]; bas: BaSummary[];
   history: { at: string; user: string | null; entity: string; action: string; field: string | null; old: string | null; new: string | null; reason: string | null }[];
-  options: { pics: Pic[]; activities: string[]; contract_types: string[]; ba_types: string[]; change_types: string[]; invoice_statuses: string[]; gr_statuses: string[]; checklist: Record<string, string> };
+  options: { pics: Pic[]; activities: string[]; gr_types: string[]; contract_types: string[]; ba_types: string[]; change_types: string[]; invoice_statuses: string[]; gr_statuses: string[]; checklist: Record<string, string> };
 }
 const TABS = ['ringkasan', 'proses', 'dokumen', 'kontrak', 'pasca', 'riwayat'] as const;
 
@@ -96,7 +96,7 @@ export default function ProcurementShow(props: Props) {
               <CardHead title="Identitas" actions={can && <Link href={`/pengadaan/${p.code}/edit`}><Button size="xs" variant="ghost" icon={Pencil}>Edit</Button></Link>} />
               <div className="p-5"><KV cols={3} items={[
                 ['ID monitoring', <span key="c" className="num">{p.code}</span>], [p.method === 'SPP' ? 'Nomor SPP' : 'Nomor pengajuan', p.spp_number || '–'], ['User Pengaju', p.pengaju_name || '–'],
-                ['Nilai RAB', <span key="r" className="num">{rp(p.rab_value)}</span>], ['Kode anggaran', p.budget_codes.map((b) => b.code).join(', ') || '–'], ['Skema / jenis', `${p.method} · ${p.proc_type || '–'}`],
+                ['Nilai RAB', <span key="r" className="num">{rp(p.rab_value)}</span>], ['PRK', p.budget_codes.map((b) => `${b.code} · ${b.program}`).join(', ') || '–'], ['Skema / jenis', `${p.method} · ${p.proc_type || '–'}`],
                 ...(p.method === 'SPP' ? [['Metode pengadaan', p.proc_method || '–']] as [string, string][] : []), ['Sub bidang', p.sub_bidang || '–'], ['Tanggal registrasi', fmtDate(p.registered_at)], ['Tanggal SPP', fmtDate(p.spp_date)],
                 [p.method === 'Kemitraan' ? 'Calon mitra' : 'Calon vendor', <span key="v" className="flex flex-wrap gap-1">{p.candidate_vendors.map((c) => <Badge key={c.id} tone={p.vendor_id === c.id ? 'ok' : 'outline'}>{c.name}{p.vendor_id === c.id ? ' · pemenang' : ''}</Badge>)}</span>],
                 ['Ringkasan kebutuhan', p.summary || '–'],
@@ -114,8 +114,8 @@ export default function ProcurementShow(props: Props) {
             <Card>
               <CardHead icon={Handshake} title="Referensi" />
               <div className="space-y-4 p-5 text-[13px]">
-                <div><p className="mb-1.5 text-[12px] font-medium text-mute">BAKB / Kontrak pelanggan ({p.customer_contracts.length})</p>{p.customer_contracts.length ? p.customer_contracts.map((c) => <Link key={c.id} href={`/bakb/${c.id}`} className="mb-1.5 block rounded-lg border border-line px-3 py-2 hover:border-brand"><span className="num block font-bold text-brand">{c.number}</span><span className="block text-[12px] text-mute">{c.title} · {c.customer}</span></Link>) : <p className="text-mute">–</p>}</div>
-                {documents.filter((d) => ['MoM', 'Surat Penugasan'].includes(d.doc_type)).map((d) => <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2"><span><b>{d.doc_type}</b> <span className="num text-mute">{d.number}</span>{d.customer && <span className="block text-[12px] text-mute">{d.customer}</span>}</span><LinkButton url={d.link} label="Buka" /></div>)}
+                <div><p className="mb-1.5 text-[12px] font-medium text-mute">Perjanjian pelanggan ({p.customer_contracts.length})</p>{p.customer_contracts.length ? p.customer_contracts.map((c) => <Link key={c.id} href={`/bakb/${c.id}`} className="mb-1.5 block rounded-lg border border-line px-3 py-2 hover:border-brand"><span className="flex flex-wrap items-center gap-1.5"><Badge tone={c.kind === 'BAKB' ? 'navy' : c.kind === 'MoM Kesepakatan Harga' ? 'teal' : 'brand'}>{c.kind}</Badge><span className="num font-bold text-brand">{c.number}</span></span><span className="block text-[12px] text-mute">{c.title} · {c.customer}</span></Link>) : <p className="text-warn">Belum ada perjanjian pelanggan.</p>}</div>
+                {documents.filter((d) => d.doc_type === 'Surat Penugasan').map((d) => <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2"><span><b>{d.doc_type}</b> <span className="num text-mute">{d.number}</span></span><LinkButton url={d.link} label="Buka" /></div>)}
                 {p.method === 'Kemitraan' && <div><p className="mb-1.5 text-[12px] font-medium text-mute">PKS & BAK</p>{p.pks ? <Link href={`/pks/${p.pks.id}`} className="block rounded-lg border border-line px-3 py-2 hover:border-brand"><span className="flex items-center gap-2"><ScrollText size={14} className="text-brand" /><span className="num font-bold text-brand">{p.pks.number}</span></span><span className="block text-[12px]">Versi efektif: <b>{p.pks.label}</b></span></Link> : <p className="text-warn">PKS belum dipilih.</p>}<p className="mt-2">BAK: <b className="num">{p.bak_number || '–'}</b> {p.bak_date && <span className="text-mute">· {fmtDate(p.bak_date)}</span>}</p></div>}
               </div>
             </Card>
@@ -168,13 +168,13 @@ export default function ProcurementShow(props: Props) {
       {tab === 'pasca' && (
         <div className="space-y-5">
           {!contract ? <Card><EmptyState icon={FileSignature} title="Belum ada SP2K/PO" desc="Pasca Pengadaan terbentuk setelah SP2K/PO dirilis beserta tahapan pembayarannya." /></Card> : terms.map((t) => (
-            <TermDetail key={t.id} t={t} bas={bas} can={can} onUpdate={(mode) => openUpdate('pasca', t.id, mode)} onGr={() => setGrTerm(t)} onInv={() => setInvTerm(t)} />
+            <TermDetail key={t.id} code={p.code} t={t} bas={bas} can={can} onUpdate={(mode) => openUpdate('pasca', t.id, mode)} onGr={() => setGrTerm(t)} onInv={() => setInvTerm(t)} />
           ))}
           <Card>
             <CardHead icon={PenLine} title="Berita Acara" actions={can && contract && <Link href={`/pengadaan/${p.code}/ba/baru`}><Button size="sm" icon={Plus}>Tambah BA</Button></Link>} />
             {bas.length === 0 ? <EmptyState compact icon={PenLine} title="Belum ada Berita Acara" desc="BA dibuat dari halaman ini agar otomatis terhubung ke pengadaan dan tahap pembayaran." /> : (
-              <TableWrap><thead><tr>{['Jenis', 'Nomor', 'Judul', 'Tanggal', 'Status', 'Progres TTD', 'Tautan'].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-                <tbody>{bas.map((b) => <tr key={b.id} className="cursor-pointer hover:bg-sunken/60" onClick={() => router.visit(`/ba/${b.id}`)}><td className={td}><Badge tone="navy">{b.type}</Badge></td><td className={cx(td, 'num font-semibold')}>{b.number || '–'}</td><td className={td}>{b.title}</td><td className={td}>{fmtDate(b.date)}</td><td className={td}><StatusBadge status={b.status} /></td><td className={cx(td, 'num')}>{b.signed}/{b.total}{b.round > 1 && <span className="ml-1 text-warn">· putaran {b.round}</span>}</td><td className={td}><LinkButton url={b.link} label="Buka" /></td></tr>)}</tbody>
+              <TableWrap><thead><tr>{['Tahap', 'Jenis', 'Nomor', 'Judul', 'Tanggal', 'Status', 'Progres TTD', 'Tautan'].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
+                <tbody>{bas.map((b) => <tr key={b.id} className="cursor-pointer hover:bg-sunken/60" onClick={() => router.visit(`/ba/${b.id}`)}><td className={cx(td, 'num whitespace-nowrap font-semibold')}>{b.term_seqs.length ? b.term_seqs.map((n) => `Tahap ${n}`).join(', ') : <span className="text-mute">–</span>}</td><td className={td}><Badge tone="navy">{b.type}</Badge></td><td className={cx(td, 'num font-semibold')}>{b.number || '–'}</td><td className={td}>{b.title}</td><td className={td}>{fmtDate(b.date)}</td><td className={td}><StatusBadge status={b.status} /></td><td className={cx(td, 'num')}>{b.signed}/{b.total}{b.round > 1 && <span className="ml-1 text-warn">· putaran {b.round}</span>}</td><td className={td}><LinkButton url={b.link} label="Buka" /></td></tr>)}</tbody>
               </TableWrap>)}
           </Card>
         </div>
@@ -189,7 +189,7 @@ export default function ProcurementShow(props: Props) {
 
       <UpdateProcessDrawer open={drawer.open} onClose={() => setDrawer({ ...drawer, open: false })} code={p.code} track={drawer.track} term={drawerTerm}
         current={drawer.track === 'pasca' ? drawerTerm?.current || null : approval.current} stages={drawer.track === 'pasca' ? props.pasca_stages : approval.stages}
-        pics={o.pics} activities={o.activities} finalLabel={finalLabel} initialMode={drawer.mode} />
+        pics={o.pics} activities={o.activities} finalLabel={finalLabel} initialMode={drawer.mode} grTypes={o.gr_types} />
       <ReleaseContractModal open={modal === 'contract'} onClose={() => setModal('')} code={p.code} method={p.method} title={p.title} candidates={p.candidate_vendors} rab={p.rab_value} contractTypes={o.contract_types} runningStage={approval.current && !approval.current.amendment_id ? approval.current.stage : null} />
       {contract && <ContractEditModal open={modal === 'editContract'} onClose={() => setModal('')} contract={contract} />}
       {contract && <AmendmentRequestModal open={modal === 'amendReq'} onClose={() => setModal('')} code={p.code} kind={contract.kind} number={contract.number} stages={approval.all_stages} />}
@@ -203,7 +203,7 @@ export default function ProcurementShow(props: Props) {
   );
 }
 
-function ProgressPanel({ procurement: p, approval, amendment, contract, terms, can, onUpdate, onModal, onTab }: Props & { can: boolean; onUpdate: (t: 'pengadaan' | 'pasca', termId?: number) => void; onModal: (m: 'contract' | 'amendReq' | 'amendRel') => void; onTab: (t: string) => void }) {
+function ProgressPanel({ procurement: p, approval, amendment, contract, terms, bas, can, onUpdate, onModal, onTab }: Props & { can: boolean; onUpdate: (t: 'pengadaan' | 'pasca', termId?: number) => void; onModal: (m: 'contract' | 'amendReq' | 'amendRel') => void; onTab: (t: string) => void }) {
   const cur = approval.current;
   const orig = cur && !cur.amendment_id ? cur : null;
   const paid = terms.filter((t) => t.paid_at).length;
@@ -229,13 +229,13 @@ function ProgressPanel({ procurement: p, approval, amendment, contract, terms, c
       )}
       <div className="px-5 py-4">
         <div className="mb-3">{head(2, 'Proses Pasca Pengadaan', !contract ? 'Terbentuk setelah SP2K/PO rilis' : !terms.length ? 'Tahapan pembayaran belum dibuat' : p.post_state === 'selesai' ? `Selesai · ${terms.length} tahap dibayar` : `${paid} dari ${terms.length} tahap dibayar · mulai ${fmtDate(contract.kickoff_date)}, selesai ${fmtDate(contract.end_date)}`, p.post_state === 'selesai' ? 'ok' : terms.length ? 'run' : 'idle', null, 'pasca')}</div>
-        {terms.length > 0 && <div className="space-y-2">{terms.map((t) => <TermCard key={t.id} t={t} can={can} onUpdate={() => onUpdate('pasca', t.id)} onTab={onTab} />)}</div>}
+        {terms.length > 0 && <div className="space-y-2">{terms.map((t) => <TermCard key={t.id} code={p.code} t={t} bas={bas} can={can} onUpdate={() => onUpdate('pasca', t.id)} onTab={onTab} />)}</div>}
       </div>
     </Card>
   );
 }
 
-function TermCard({ t, can, onUpdate, onTab }: { t: Term; can: boolean; onUpdate: () => void; onTab: (t: string) => void }) {
+function TermCard({ code, t, bas, can, onUpdate, onTab }: { code: string; t: Term; bas: BaSummary[]; can: boolean; onUpdate: () => void; onTab: (t: string) => void }) {
   const [open, setOpen] = useState(false);
   const total = t.nodes.length; const done = t.paid_at ? total : t.nodes.filter((n) => n.state === 'done' || n.state === 'skipped').length;
   return (
@@ -253,8 +253,9 @@ function TermCard({ t, can, onUpdate, onTab }: { t: Term; can: boolean; onUpdate
             <div><span className="text-mute">Rencana pekerjaan</span><div className="font-semibold">{t.plan ? `${fmtDate(t.plan.start)} – ${fmtDate(t.plan.end)}` : '–'}</div></div>
             <div><span className="text-mute">PIC tahap</span><div className="font-semibold">{t.current?.pic || '–'}</div></div>
             <div><span className="text-mute">Aktivitas terakhir</span><div className="font-semibold">{t.current?.activity || (t.paid_at ? `Dibayar ${fmtDate(t.paid_at)}` : '–')}</div></div>
-            <div><span className="text-mute">Dokumen</span><div className="font-semibold">BA {t.ba_ready ? 'TTD Selesai' : t.ba_ids.length ? 'proses' : 'belum ada'} · GR {t.gr?.status || 'belum ada'} · Invoice {t.invoice?.status || 'belum ada'}</div></div>
+            <div><span className="text-mute">Dokumen</span><div className="font-semibold">BA {t.ba_ids.length} · GR {t.gr?.status || 'belum ada'} · Invoice {t.invoice?.status || 'belum ada'}</div></div>
           </div>
+          <div className="mt-4 -mx-4 border-t border-line"><TermBaList code={code} t={t} bas={bas} can={can} /></div>
           <div className="mt-4 flex flex-wrap gap-2">{can && t.current && !t.paid_at && <Button size="sm" variant="primary" icon={RefreshCw} onClick={onUpdate}>Update tahap</Button>}<Button size="sm" variant="ghost" iconRight={ArrowRight} onClick={() => onTab('pasca')}>Detail tahap</Button></div>
         </div>
       )}
@@ -262,7 +263,7 @@ function TermCard({ t, can, onUpdate, onTab }: { t: Term; can: boolean; onUpdate
   );
 }
 
-function TermDetail({ t, bas, can, onUpdate, onGr, onInv }: { t: Term; bas: BaSummary[]; can: boolean; onUpdate: (m: Mode) => void; onGr: () => void; onInv: () => void }) {
+function TermDetail({ code, t, bas, can, onUpdate, onGr, onInv }: { code: string; t: Term; bas: BaSummary[]; can: boolean; onUpdate: (m: Mode) => void; onGr: () => void; onInv: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <Card>
@@ -276,13 +277,38 @@ function TermDetail({ t, bas, can, onUpdate, onGr, onInv }: { t: Term; bas: BaSu
           <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
             {can && t.current && !t.paid_at && <><Button size="sm" variant="primary" icon={RefreshCw} onClick={() => onUpdate('update')}>Update</Button><Button size="sm" onClick={() => onUpdate('return')}>Kembalikan</Button><Button size="sm" onClick={() => onUpdate('skip')}>Lewati</Button></>}
             {can && <><Button size="sm" variant="ghost" onClick={onGr}>{t.gr ? `GR: ${t.gr.status}` : 'Catat GR'}</Button><Button size="sm" variant="ghost" onClick={onInv}>{t.invoice ? `Invoice: ${t.invoice.status}` : 'Catat invoice'}</Button></>}
-            <span className="ml-auto text-[12px] text-mute">BA: {t.ba_ids.map((id) => bas.find((b) => b.id === id)).filter(Boolean).map((b) => `${b!.type} ${b!.status}`).join(', ') || 'belum ditautkan'}</span>
           </div>
           <div className="px-5 py-5"><Stepper nodes={t.nodes} /></div>
+          <TermBaList code={code} t={t} bas={bas} can={can} />
           <History visits={t.history} />
         </div>
       )}
     </Card>
+  );
+}
+
+/** Daftar BA satu tahap pembayaran beserta progres tanda tangannya. Satu tahap boleh memiliki lebih dari satu BA. */
+function TermBaList({ code, t, bas, can }: { code: string; t: Term; bas: BaSummary[]; can: boolean }) {
+  const mine = bas.filter((b) => b.term_ids.includes(t.id));
+  return (
+    <div className="px-5 py-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[13.5px] font-bold">Berita Acara tahap {t.seq} <span className="num font-medium text-mute">({mine.length})</span></p>
+        {can && <Link href={`/pengadaan/${code}/ba/baru?tahap=${t.id}`}><Button size="xs" icon={Plus}>Tambah BA</Button></Link>}
+      </div>
+      {mine.length === 0 ? <p className="text-[12.5px] text-mute">Belum ada BA untuk tahap ini.</p> : (
+        <ul className="space-y-2">{mine.map((b) => (
+          <li key={b.id}>
+            <Link href={`/ba/${b.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line px-3 py-2 text-[13px] hover:border-brand">
+              <Badge tone="navy">{b.type}</Badge>
+              <span className="num font-semibold">{b.number || 'Tanpa nomor'}</span>
+              <span className="min-w-0 flex-1 truncate text-mute">{b.title}</span>
+              <span className="flex items-center gap-2"><span className="h-1.5 w-16 rounded-full bg-sunken"><span className={cx('block h-1.5 rounded-full', b.status === 'TTD Selesai' ? 'bg-ok' : 'bg-brand')} style={{ width: `${b.total ? (b.signed / b.total) * 100 : 0}%` }} /></span><span className="num text-[12px] text-mute">{b.signed}/{b.total} TTD</span></span>
+              <StatusBadge status={b.status} />
+            </Link>
+          </li>))}</ul>
+      )}
+    </div>
   );
 }
 
@@ -314,7 +340,7 @@ function RabCard({ p }: { p: Props['procurement'] }) {
     <Card>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left"><span><span className="block text-[15px] font-bold">Informasi RAB</span><span className="num block text-[12.5px] text-mute">{p.rab_items.length} baris · total {rp(p.rab_value)}</span></span><ChevronDown size={18} className={cx('text-mute transition', open ? 'rotate-180' : '')} /></button>
       {open && <div className="border-t border-line"><TableWrap>
-        <thead><tr>{['Deskripsi', 'Tipe Anggaran', 'Kode Anggaran', 'Jumlah', 'Satuan', 'Harga', 'Total'].map((x) => <th key={x} className={cx(th, ['Jumlah', 'Harga', 'Total'].includes(x) && 'text-right')}>{x}</th>)}</tr></thead>
+        <thead><tr>{['Deskripsi', 'Tipe Anggaran', 'PRK', 'Jumlah', 'Satuan', 'Harga', 'Total'].map((x) => <th key={x} className={cx(th, ['Jumlah', 'Harga', 'Total'].includes(x) && 'text-right')}>{x}</th>)}</tr></thead>
         <tbody>{p.rab_items.map((r) => <tr key={r.id}><td className={cx(td, 'min-w-[260px] font-medium')}>{r.description}</td><td className={td}><Badge tone={r.budget_type === 'CAPEX' ? 'teal' : 'navy'}>{r.budget_type}</Badge></td><td className={cx(td, 'whitespace-nowrap')}><span className="num font-semibold">{r.budget_code}</span><span className="block max-w-[220px] truncate text-[11.5px] text-mute">{r.program}</span></td><td className={cx(td, 'num text-right')}>{r.qty.toLocaleString('id-ID')}</td><td className={td}>{r.unit}</td><td className={cx(td, 'num whitespace-nowrap text-right')}>{rp(r.price)}</td><td className={cx(td, 'num whitespace-nowrap text-right font-semibold')}>{rp(r.total)}</td></tr>)}</tbody>
         <tfoot><tr className="border-t-2 border-ink/70"><td colSpan={6} className="px-4 py-2.5 text-[13px] font-bold">Total</td><td className="num px-4 py-2.5 text-right text-[13.5px] font-extrabold">{rp(p.rab_value)}</td></tr></tfoot>
       </TableWrap></div>}

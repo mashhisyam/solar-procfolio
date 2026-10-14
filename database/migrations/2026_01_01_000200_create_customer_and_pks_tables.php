@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('customer_contracts', function (Blueprint $table) {
             $table->id();
+            $table->string('kind', 40)->default('BAKB'); // BAKB | MoM Kesepakatan Harga | Kontrak Pelanggan
             $table->string('number')->unique();
             $table->string('title');
             $table->foreignId('customer_id')->constrained('companies');

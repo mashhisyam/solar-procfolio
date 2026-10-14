@@ -9,8 +9,8 @@ import type { BaSummary, PageProps, Pic, Term } from '@/types';
 /** Goods Receipt per tahap: diajukan di aplikasi lain dengan BA sebagai referensi, dicatat di Procfolio. */
 export function GrDrawer({ open, onClose, code, term, bas, pics, statuses }: { open: boolean; onClose: () => void; code: string; term: Term | null; bas: BaSummary[]; pics: Pic[]; statuses: string[] }) {
   const gr = term?.gr;
-  const form = useForm({ status: 'Belum Diajukan', number: '', submitted_at: '', gr_date: '', source_app: 'SAP', pic_id: null as number | null, link: '', note: '', ba_ids: [] as number[] });
-  useEffect(() => { if (open && term) form.setData({ status: gr?.status || 'Belum Diajukan', number: gr?.number || '', submitted_at: gr?.submitted_at || '', gr_date: gr?.gr_date || '', source_app: gr?.source_app || 'SAP', pic_id: gr?.pic_id ?? null, link: gr?.link || '', note: gr?.note || '', ba_ids: gr?.ba_ids?.length ? gr.ba_ids : term.ba_ids }); }, [open, term?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const form = useForm({ status: 'Belum Diajukan', number: '', gr_type: '', amount: 0, submitted_at: '', gr_date: '', source_app: 'SAP', pic_id: null as number | null, link: '', note: '', ba_ids: [] as number[] });
+  useEffect(() => { if (open && term) form.setData({ status: gr?.status || 'Belum Diajukan', number: gr?.number || '', gr_type: gr?.gr_type || '', amount: gr?.amount || term.amount, submitted_at: gr?.submitted_at || '', gr_date: gr?.gr_date || '', source_app: gr?.source_app || 'SAP', pic_id: gr?.pic_id ?? null, link: gr?.link || '', note: gr?.note || '', ba_ids: gr?.ba_ids?.length ? gr.ba_ids : term.ba_ids }); }, [open, term?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!term) return null;
   const d = form.data; const e = form.errors as Record<string, string>;
   const notDone = bas.filter((b) => d.ba_ids.includes(b.id) && b.status !== 'TTD Selesai');
@@ -25,6 +25,8 @@ export function GrDrawer({ open, onClose, code, term, bas, pics, statuses }: { o
         <Field label="Tanggal pengajuan" required={d.status !== 'Belum Diajukan'} error={e.submitted_at}><Input type="date" value={d.submitted_at} onChange={(x) => form.setData('submitted_at', x.target.value)} /></Field>
         <Field label="PIC pengaju GR"><PicSelect pics={pics} value={d.pic_id} onChange={(v) => form.setData('pic_id', v)} roles={['Solution Architect']} /></Field>
         <Field label="Nomor GR" required={d.status === 'GR Terbit'} error={e.number}><Input value={d.number} invalid={!!e.number} onChange={(x) => form.setData('number', x.target.value)} /></Field>
+        <Field label="Jenis GR"><Select value={d.gr_type} onChange={(x) => form.setData('gr_type', x.target.value)}><option value="">–</option>{['BAST', 'BAPS', 'BA Rekon', 'BAUK'].map((t) => <option key={t}>{t}</option>)}</Select></Field>
+        <Field label="Nominal GR" error={e.amount}><MoneyInput value={d.amount} onChange={(n) => form.setData('amount', n)} /></Field>
         <Field label="Tanggal GR terbit" required={d.status === 'GR Terbit'} error={e.gr_date}><Input type="date" value={d.gr_date} onChange={(x) => form.setData('gr_date', x.target.value)} /></Field>
         <Field label="Tautan dokumen GR" className="sm:col-span-2" error={e.link}><LinkField value={d.link} onChange={(v) => form.setData('link', v)} /></Field>
         <Field label="Catatan" className="sm:col-span-2"><Textarea value={d.note} onChange={(x) => form.setData('note', x.target.value)} /></Field>

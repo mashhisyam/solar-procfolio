@@ -24,7 +24,7 @@ class ProcurementPresenter
     public function detail(Procurement $p): array
     {
         $p->loadMissing([...ProcurementInsight::WITH, 'visits.activities', 'rabItems.budgetCode', 'budgetCodes', 'candidateVendors',
-            'customerContracts.customer', 'pks.partner', 'pks.amendments', 'documents.customer', 'terms.goodsReceipt.beritaAcara', 'terms.invoice.pic', 'terms.goodsReceipt.pic']);
+            'customerContracts.customer', 'pks.partner', 'pks.amendments', 'documents.customer', 'terms.goodsReceipt.beritaAcara', 'terms.invoice.pic', 'terms.goodsReceipt.pic', 'beritaAcara.terms:id,seq']);
         $i = $this->insight;
         $row = $i->row($p);
         $approval = $i->currentApproval($p);
@@ -49,7 +49,7 @@ class ProcurementPresenter
                     'id' => $r->id, 'description' => $r->description, 'budget_type' => $r->budget_type, 'budget_code' => $r->budgetCode?->code,
                     'program' => $r->budgetCode?->program, 'qty' => (float) $r->qty, 'unit' => $r->unit, 'price' => (float) $r->price, 'total' => $r->total(),
                 ])->values(),
-                'customer_contracts' => $p->customerContracts->map(fn ($c) => ['id' => $c->id, 'number' => $c->number, 'title' => $c->title, 'customer' => $c->customer?->name, 'link' => $c->link])->values(),
+                'customer_contracts' => $p->customerContracts->map(fn ($c) => ['id' => $c->id, 'kind' => $c->kind, 'number' => $c->number, 'title' => $c->title, 'customer' => $c->customer?->name, 'link' => $c->link])->values(),
             ],
             'header' => $row,
             'alerts' => $i->alerts($p),
@@ -94,7 +94,7 @@ class ProcurementPresenter
                     'ba_ids' => $t->beritaAcara->pluck('id')->values(),
                     'ba_ready' => $t->beritaAcara->isNotEmpty() && $t->beritaAcara->every(fn ($b) => $b->status() === 'TTD Selesai'),
                     'gr' => $gr ? [
-                        'id' => $gr->id, 'status' => $gr->status, 'number' => $gr->number, 'submitted_at' => Cal::iso($gr->submitted_at),
+                        'id' => $gr->id, 'status' => $gr->status, 'number' => $gr->number, 'gr_type' => $gr->gr_type, 'amount' => $gr->amount !== null ? (float) $gr->amount : null, 'submitted_at' => Cal::iso($gr->submitted_at),
                         'gr_date' => Cal::iso($gr->gr_date), 'source_app' => $gr->source_app, 'pic_id' => $gr->pic_id, 'pic' => $gr->pic?->name,
                         'link' => $gr->link, 'note' => $gr->note, 'ba_ids' => $gr->beritaAcara->pluck('id')->values(),
                     ] : null,
@@ -116,6 +116,7 @@ class ProcurementPresenter
                 return [
                     'id' => $b->id, 'type' => $b->type, 'number' => $b->number, 'title' => $b->title, 'date' => Cal::iso($b->date), 'link' => $b->link,
                     'status' => $info['status'], 'round' => $info['round'], 'signed' => $info['signed'], 'total' => $info['total'], 'days' => $info['days'],
+                    'term_ids' => $b->terms->pluck('id')->values(), 'term_seqs' => $b->terms->pluck('seq')->sort()->values(),
                 ];
             })->values(),
             'history' => AuditLog::query()->where('procurement_id', $p->id)->with('user:id,name')->latest('created_at')->limit(300)->get()
@@ -152,6 +153,7 @@ class ProcurementPresenter
             'change_types' => ContractAmendment::CHANGE_TYPES,
             'invoice_statuses' => ['Submit Invoice', 'Verifikasi', 'Perlu Revisi', 'Antri Bayar', 'Dibayar'],
             'gr_statuses' => ['Belum Diajukan', 'Diajukan', 'Perlu Revisi', 'GR Terbit'],
+            'gr_types' => \App\Models\GoodsReceipt::TYPES,
             'checklist' => Invoice::CHECKLIST,
             'vendors' => Company::query()->whereIn('type', ['Vendor', 'Mitra'])->where('active', true)->orderBy('name')->get(['id', 'name']),
         ];

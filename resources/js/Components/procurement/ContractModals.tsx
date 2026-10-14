@@ -90,7 +90,9 @@ export function AmendmentRequestModal({ open, onClose, code, kind, number, stage
   const form = useForm({ reason: '', change_types: [] as string[], proposal: '', stages: [enabled[0]?.key, enabled[enabled.length - 1]?.key].filter(Boolean) as string[], date: app.today });
   useEffect(() => { if (open) { form.reset(); form.clearErrors(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const e = form.errors as Record<string, string>;
-  const setTypes = (v: string[]) => form.setData((x) => ({ ...x, change_types: v, stages: v.includes('Nilai') && !x.stages.includes('anggaran') && enabled.some((s) => s.key === 'anggaran') ? [...x.stages, 'anggaran'] : x.stages }));
+  // Perubahan nilai wajib melewati seluruh jenjang Anggaran.
+  const budgetKeys = enabled.filter((s) => s.group === 'Anggaran' || s.key.startsWith('anggaran')).map((s) => s.key);
+  const setTypes = (v: string[]) => form.setData((x) => ({ ...x, change_types: v, stages: v.includes('Nilai') ? enabled.map((s) => s.key).filter((k) => x.stages.includes(k) || budgetKeys.includes(k)) : x.stages }));
   return (
     <Modal open={open} onClose={onClose} width="max-w-2xl" title={`Ajukan amandemen ${kind}`} desc={`${kind} ${number}. Proses Pengadaan hanya dapat dibuka kembali melalui amandemen; histori sebelumnya tetap utuh.`}
       footer={<><Button onClick={onClose}>Batal</Button><Button variant="primary" icon={Save} disabled={form.processing} onClick={() => form.post(`/pengadaan/${code}/amandemen`, { preserveScroll: true, onSuccess: onClose })}>Ajukan amandemen</Button></>}>
@@ -98,7 +100,7 @@ export function AmendmentRequestModal({ open, onClose, code, kind, number, stage
         <Field label="Alasan amandemen" required error={e.reason}><Textarea value={form.data.reason} onChange={(x) => form.setData('reason', x.target.value)} /></Field>
         <Field label="Jenis perubahan" required error={e.change_types}><Chips value={form.data.change_types} onChange={setTypes} options={CHANGE_TYPES.map((t) => ({ key: t, label: t }))} /></Field>
         <Field label="Usulan perubahan" hint="Angka final dicatat saat amandemen rilis."><Textarea value={form.data.proposal} onChange={(x) => form.setData('proposal', x.target.value)} /></Field>
-        <Field label="Tahap approval amandemen" required error={e.stages} hint="Anggaran otomatis ditambahkan bila nilai berubah."><Chips value={form.data.stages} onChange={(v) => form.setData('stages', v)} options={enabled.map((s) => ({ key: s.key, label: s.name }))} /></Field>
+        <Field label="Tahap approval amandemen" required error={e.stages} hint="Seluruh jenjang Anggaran otomatis ditambahkan bila nilai berubah."><Chips value={form.data.stages} onChange={(v) => form.setData('stages', v)} options={enabled.map((s) => ({ key: s.key, label: s.name }))} /></Field>
         <Field label="Tanggal pengajuan" required><Input type="date" value={form.data.date} onChange={(x) => form.setData('date', x.target.value)} /></Field>
       </div>
     </Modal>

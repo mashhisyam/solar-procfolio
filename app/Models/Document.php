@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Document extends Model
 {
-    public const REFERENCE_TYPES = ['Surat Penugasan', 'MoM'];
+    public const REFERENCE_TYPES = ['Surat Penugasan'];
 
     protected $fillable = ['procurement_id', 'doc_type', 'number', 'title', 'date', 'required', 'available', 'link', 'customer_id', 'note'];
 

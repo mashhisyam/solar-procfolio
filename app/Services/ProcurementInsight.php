@@ -108,7 +108,7 @@ class ProcurementInsight
         if (! $p->contract) {
             $v = $this->currentApproval($p);
 
-            return ! $v || $v->stage_key === 'pengaju' ? 'Persiapan Dokumen' : 'Dalam Approval';
+            return ! $v || str_starts_with($v->stage_key, 'pengaju') ? 'Persiapan Dokumen' : 'Dalam Approval';
         }
 
         return match ($this->postState($p)) {
@@ -180,9 +180,9 @@ class ProcurementInsight
                 $add($lvl === 'bad' ? 'dur-bad' : 'dur-warn', $lvl, "{$v->stage_name} {$days} hari", 'proses');
             }
         }
-        $hasBasis = $p->customerContracts->isNotEmpty() || $p->documents->contains(fn ($d) => $d->doc_type === 'MoM' && $d->number);
+        $hasBasis = $p->customerContracts->isNotEmpty();
         if (! $hasBasis) {
-            $add('basis', 'warn', 'Belum ada dasar dengan pelanggan', 'ringkasan');
+            $add('basis', 'warn', 'Belum ada perjanjian pelanggan', 'ringkasan');
         }
         if ($this->postState($p) === 'noterm') {
             $add('noterm', 'info', 'Tahapan pembayaran belum dibuat', 'pasca');
@@ -257,7 +257,10 @@ class ProcurementInsight
         $days = $v && ! $scheduled ? $this->visitDays($v) : null;
         $stage = null;
         if ($v) {
-            $stage = ($focus ? "Tahap {$focus['t']->seq} · " : ($v->amendment_id ? 'Amandemen · ' : '')).$v->stage_name;
+            $def = $focus ? null : collect($p->workflow)->firstWhere('key', $v->stage_key);
+            $group = $def ? WorkflowService::groupOf($def) : null;
+            $stage = ($focus ? "Tahap {$focus['t']->seq} · " : ($v->amendment_id ? 'Amandemen · ' : ''))
+                .($group && $group !== $v->stage_name ? "{$group} · " : '').$v->stage_name;
         } elseif ($p->contract) {
             $stage = $this->postState($p) === 'selesai' ? 'Seluruh tahap dibayar' : ($this->postState($p) === 'noterm' ? 'Tahapan belum dibuat' : $p->contract->kind.' Rilis');
         }
@@ -307,13 +310,19 @@ class ProcurementInsight
             ->when($track === Track::Pengadaan, fn ($c) => $c->where('amendment_id', $amendmentId));
         $nodes = [];
         foreach ($list as $s) {
+            if (! ($s['enabled'] ?? true)) {
+                continue; // tahap nonaktif (rute metode pengadaan, Direktur opsional) tidak ditampilkan
+            }
             $mine = $visits->where('stage_key', $s['key']);
             $last = $mine->last();
-            $state = ! ($s['enabled'] ?? true) ? 'skipped' : match ($last?->status) {
+            $state = match ($last?->status) {
                 'Dalam Proses' => 'current', 'Selesai' => 'done', 'Dilewati' => 'skipped', 'Dikembalikan' => 'returned', default => 'pending',
             };
+            if ($state === 'skipped' && $mine->contains('status', 'Selesai')) {
+                $state = 'done';
+            }
             $nodes[] = [
-                'key' => $s['key'], 'name' => $s['name'], 'state' => $state, 'cycles' => $mine->where('status', '!=', 'Dilewati')->count(),
+                'key' => $s['key'], 'name' => $s['name'], 'group' => $track === Track::Pasca ? null : WorkflowService::groupOf($s), 'state' => $state, 'cycles' => $mine->where('status', '!=', 'Dilewati')->count(),
                 'date' => $state === 'done' ? Cal::iso($last->completed_at) : ($state === 'current' ? Cal::iso($last->entered_at) : null),
                 'days' => $state === 'current' && ! $this->scheduled($last) ? $this->visitDays($last) : null,
                 'scheduled' => $state === 'current' && $this->scheduled($last),
@@ -321,12 +330,12 @@ class ProcurementInsight
         }
         if ($track === Track::Pasca) {
             $term = $p->terms->firstWhere('id', $termId);
-            $nodes[] = ['key' => 'final', 'name' => 'Dibayar', 'state' => $term?->paid_at ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($term?->paid_at), 'days' => null, 'scheduled' => false];
+            $nodes[] = ['key' => 'final', 'group' => null, 'name' => 'Dibayar', 'state' => $term?->paid_at ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($term?->paid_at), 'days' => null, 'scheduled' => false];
         } elseif ($amendmentId) {
             $am = $p->contract?->amendments->firstWhere('id', $amendmentId);
-            $nodes[] = ['key' => 'final', 'name' => 'Amandemen Rilis', 'state' => $am?->status === 'Rilis' ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($am?->date), 'days' => null, 'scheduled' => false];
+            $nodes[] = ['key' => 'final', 'group' => null, 'name' => 'Amandemen Rilis', 'state' => $am?->status === 'Rilis' ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($am?->date), 'days' => null, 'scheduled' => false];
         } else {
-            $nodes[] = ['key' => 'final', 'name' => $p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
+            $nodes[] = ['key' => 'final', 'group' => null, 'name' => $p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
         }
 
         return $nodes;

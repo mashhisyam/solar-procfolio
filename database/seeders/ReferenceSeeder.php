@@ -22,44 +22,62 @@ class ReferenceSeeder extends Seeder
             'proc_type' => ['Barang', 'Jasa', 'Barang & Jasa', 'Sewa'],
             'activity' => ['Review Dokumen', 'Approval', 'Disposisi', 'Klarifikasi', 'Penyusunan RKS', 'Negosiasi', 'SP2K Rilis', 'PO Rilis',
                 'Pekerjaan Berjalan', 'Penyusunan BA', 'Sirkuler TTD', 'Pengajuan GR', 'Posting GR', 'Penerimaan Invoice', 'Kelengkapan Dokumen',
-                'Verifikasi Dokumen', 'Penjadwalan Pembayaran', 'Lainnya'],
-            'doc_type' => ['TOR', 'BCR (Benefit Cost Ratio)', 'BAK', 'SPH', 'Form Justifikasi Anggaran', 'BAKB', 'Surat Penugasan', 'MoM', 'RKS', 'Lainnya'],
+                'Verifikasi Dokumen', 'Penjadwalan Pembayaran', 'Pembuatan BA', 'Sirkuler BA', 'Revisi BA', 'BA Fully Sign', 'Lainnya'],
+            'doc_type' => ['TOR', 'BCR (Benefit Cost Ratio)', 'BAK', 'SPH', 'Form Justifikasi Anggaran', 'BAKB', 'Surat Penugasan', 'RKS', 'Lainnya'],
             'ba_type' => ['BAST', 'BAPS', 'BAUK', 'BA Rekon'],
             'contract_type' => ['SP2K', 'PO', 'Kontrak'],
             'change_part' => ['Ruang Lingkup', 'Masa Berlaku', 'Ketentuan Komersial', 'Para Pihak', 'Lainnya'],
             'rab_unit' => ['LOT (SERVICE & MATERIAL)', 'User', 'Lisensi', 'Core', 'Endpoint', 'Unit', 'Bulan', 'Paket'],
         ];
-        $locked = ['activity' => ['SP2K Rilis', 'PO Rilis'], 'doc_type' => ['TOR', 'BCR (Benefit Cost Ratio)', 'BAK', 'MoM', 'Surat Penugasan'], 'contract_type' => ['SP2K', 'PO']];
+        $locked = ['activity' => ['SP2K Rilis', 'PO Rilis'], 'doc_type' => ['TOR', 'BCR (Benefit Cost Ratio)', 'BAK', 'Surat Penugasan'], 'contract_type' => ['SP2K', 'PO']];
         foreach ($lists as $group => $labels) {
             foreach ($labels as $i => $label) {
                 MasterItem::query()->updateOrCreate(['group' => $group, 'label' => $label], ['sort' => $i, 'active' => true, 'locked' => in_array($label, $locked[$group] ?? [], true)]);
             }
         }
 
+        // [kunci, nama tahap (= peran PIC yang disarankan), kelompok, opsional, aktif default, aktivitas]
+        $review = ['Review Dokumen', 'Approval', 'Disposisi', 'Klarifikasi'];
+        $pengaju = [
+            ['pengaju_user', 'User Pengaju', 'Pengaju', false, true, ['Review Dokumen', 'Lainnya']],
+            ['pengaju_mgr', 'Manager Pengaju', 'Pengaju', false, true, $review],
+            ['pengaju_vp', 'L1/VP Pengaju', 'Pengaju', false, true, $review],
+            ['pengaju_dir', 'Direktur Pengaju', 'Pengaju', true, false, $review],
+        ];
+        $anggaran = [
+            ['anggaran_staff', 'Staff Anggaran', 'Anggaran', false, true, $review],
+            ['anggaran_mgr', 'Manager Anggaran', 'Anggaran', false, true, $review],
+            ['anggaran_vp', 'L1/VP Anggaran', 'Anggaran', false, true, $review],
+            ['anggaran_dir', 'Direktur Anggaran', 'Anggaran', true, false, $review],
+        ];
         $tpl = [
-            'SPP' => [
-                ['pengaju', 'Pengaju', false, ['Review Dokumen', 'Lainnya']],
-                ['anggaran', 'Anggaran', false, ['Review Dokumen', 'Approval', 'Disposisi', 'Klarifikasi']],
-                ['rendan', 'Perencana Pengadaan', true, ['Review Dokumen', 'Penyusunan RKS', 'Klarifikasi']],
-                ['lakdan', 'Pelaksana Pengadaan', false, ['Review Dokumen', 'Klarifikasi', 'Negosiasi', 'SP2K Rilis']],
+            // Setelah Anggaran, semua pengadaan masuk ke Manager Pengadaan. Selanjutnya (default menurut metode, lihat WorkflowService::applyRouting):
+            // Pengadaan Langsung: Manager Pengadaan -> SPV Lakdan -> Staff Lakdan
+            // Metode lain:        Manager Pengadaan -> SPV Rendan -> Staff Rendan -> SPV Lakdan -> Staff Lakdan
+            'SPP' => [...$pengaju, ...$anggaran,
+                ['pengadaan_mgr', 'Manager Pengadaan', 'Manager Pengadaan', false, true, ['Review Dokumen', 'Disposisi', 'Klarifikasi']],
+                ['rendan_spv', 'SPV Rendan', 'Perencana Pengadaan', false, true, ['Review Dokumen', 'Penyusunan RKS', 'Klarifikasi']],
+                ['rendan_staff', 'Staff Rendan', 'Perencana Pengadaan', false, true, ['Penyusunan RKS', 'Klarifikasi']],
+                ['lakdan_spv', 'SPV Lakdan', 'Pelaksana Pengadaan', false, true, ['Review Dokumen', 'Klarifikasi', 'Negosiasi']],
+                ['lakdan_staff', 'Staff Lakdan', 'Pelaksana Pengadaan', false, true, ['Klarifikasi', 'Negosiasi', 'SP2K Rilis']],
             ],
-            'Kemitraan' => [
-                ['pengaju', 'Pengaju', false, ['Review Dokumen', 'Lainnya']],
-                ['anggaran', 'Anggaran', false, ['Review Dokumen', 'Approval', 'Disposisi', 'Klarifikasi']],
-                ['partnership', 'Partnership', false, ['Review Dokumen', 'Klarifikasi', 'Negosiasi', 'PO Rilis']],
+            'Kemitraan' => [...$pengaju, ...$anggaran,
+                ['partnership', 'Partnership', 'Partnership', false, true, ['Review Dokumen', 'Klarifikasi', 'Negosiasi', 'PO Rilis']],
             ],
             'Pasca' => [
-                ['pelaksanaan', 'Pelaksanaan Pekerjaan', false, ['Pekerjaan Berjalan', 'Klarifikasi']],
-                ['ba', 'BA Penutupan', false, ['Penyusunan BA', 'Sirkuler TTD', 'Klarifikasi']],
-                ['gr', 'Proses GR', false, ['Pengajuan GR', 'Posting GR', 'Klarifikasi']],
-                ['invoice', 'Invoicing', false, ['Penerimaan Invoice', 'Kelengkapan Dokumen']],
-                ['verifikasi', 'Verifikasi Invoice', false, ['Verifikasi Dokumen', 'Klarifikasi']],
-                ['antri', 'Antri Bayar', false, ['Penjadwalan Pembayaran']],
+                ['pelaksanaan', 'Pelaksanaan Pekerjaan', null, false, true, []],
+                ['ba', 'BA Penutupan', null, false, true, ['Pembuatan BA', 'Sirkuler BA', 'Revisi BA']],
+                ['gr', 'Proses GR', null, false, true, ['Pengajuan GR', 'Posting GR', 'Klarifikasi']],
+                ['invoice', 'Invoicing', null, false, true, ['Penerimaan Invoice', 'Kelengkapan Dokumen']],
+                ['verifikasi', 'Verifikasi Invoice', null, false, true, ['Verifikasi Dokumen', 'Klarifikasi']],
+                ['antri', 'Antri Bayar', null, false, true, ['Penjadwalan Pembayaran']],
             ],
         ];
         foreach ($tpl as $scheme => $stages) {
-            foreach ($stages as $i => [$key, $name, $optional, $acts]) {
-                WorkflowTemplate::query()->updateOrCreate(['scheme' => $scheme, 'key' => $key], ['name' => $name, 'optional' => $optional, 'enabled' => true, 'sort' => $i, 'default_activities' => $acts]);
+            // Template diganti utuh agar kunci lama tidak tertinggal. Pengadaan berjalan memakai salinan alurnya sendiri.
+            WorkflowTemplate::query()->where('scheme', $scheme)->delete();
+            foreach ($stages as $i => [$key, $name, $group, $optional, $enabled, $acts]) {
+                WorkflowTemplate::query()->create(['scheme' => $scheme, 'key' => $key, 'name' => $name, 'group' => $group, 'optional' => $optional, 'enabled' => $enabled, 'sort' => $i, 'default_activities' => $acts]);
             }
         }
 

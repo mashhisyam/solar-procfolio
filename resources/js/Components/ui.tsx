@@ -62,8 +62,27 @@ export function Field({ label, required, hint, error, children, className }: { l
   );
 }
 export const inputCls = 'w-full h-9 rounded-lg border border-line bg-surface px-3 text-[13.5px] text-ink placeholder:text-mute/70 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:bg-sunken disabled:text-mute';
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(({ className, invalid, ...rest }, ref) => <input ref={ref} {...rest} aria-invalid={invalid || undefined} className={cx(inputCls, invalid && 'border-bad ring-2 ring-bad/15', className)} />);
-export function Textarea({ className, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) { return <textarea {...rest} className={cx(inputCls, 'h-auto min-h-[72px] py-2', className)} />; }
+/**
+ * Isian teks bebas otomatis huruf kapital. Tidak berlaku untuk email, kata sandi, URL, angka,
+ * tanggal, pencarian, atau bila diberi prop `noCaps` (mis. tautan dan kredensial).
+ */
+const NO_CAPS_TYPES = ['email', 'password', 'url', 'number', 'date', 'datetime-local', 'month', 'time', 'search', 'tel'];
+const toCaps = (v: string) => v.toUpperCase();
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; noCaps?: boolean }>(({ className, invalid, noCaps, onChange, type, ...rest }, ref) => {
+  const caps = !noCaps && !NO_CAPS_TYPES.includes(type || 'text') && !rest.inputMode;
+  return (
+    <input ref={ref} type={type} {...rest}
+      onChange={caps && onChange ? (e) => { const pos = e.target.selectionStart; e.target.value = toCaps(e.target.value); if (pos !== null) e.target.setSelectionRange(pos, pos); onChange(e); } : onChange}
+      aria-invalid={invalid || undefined} className={cx(inputCls, invalid && 'border-bad ring-2 ring-bad/15', className)} />
+  );
+});
+export function Textarea({ className, noCaps, onChange, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { noCaps?: boolean }) {
+  return (
+    <textarea {...rest}
+      onChange={!noCaps && onChange ? (e) => { const pos = e.target.selectionStart; e.target.value = toCaps(e.target.value); e.target.setSelectionRange(pos, pos); onChange(e); } : onChange}
+      className={cx(inputCls, 'h-auto min-h-[72px] py-2', className)} />
+  );
+}
 export function Select({ className, invalid, children, ...rest }: React.SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
   return (
     <div className="relative">
@@ -135,10 +154,11 @@ export function MultiSelect({ options, value, onChange, placeholder = 'Pilih…'
   );
 }
 
-export const isLink = (u?: string | null) => !!u && /^https:\/\/\S+$/i.test(u.trim());
+/** Tautan dapat dibuka langsung bila diawali http(s)://; isian lain tetap diterima. */
+export const isLink = (u?: string | null) => !!u && /^https?:\/\/\S+$/i.test(u.trim());
 
 /** Isian tautan dokumen (SharePoint/sharefolder). Dokumen tidak diunggah ke Procfolio. */
-export function LinkField({ value, onChange, placeholder = 'Tempel tautan SharePoint, contoh https://…sharepoint.com/…', invalid }: { value?: string | null; onChange: (v: string) => void; placeholder?: string; invalid?: boolean }) {
+export function LinkField({ value, onChange, placeholder = 'Tempel tautan dokumen SharePoint/sharefolder', invalid }: { value?: string | null; onChange: (v: string) => void; placeholder?: string; invalid?: boolean }) {
   const text = value || '';
   const valid = isLink(text);
   return (
@@ -146,11 +166,11 @@ export function LinkField({ value, onChange, placeholder = 'Tempel tautan ShareP
       <div className="flex items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Link2 size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mute" aria-hidden />
-          <input type="url" inputMode="url" value={text} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label="Tautan dokumen" className={cx(inputCls, 'pl-9', ((text && !valid) || invalid) && 'border-warn')} />
+          <input type="text" value={text} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label="Tautan dokumen" className={cx(inputCls, 'pl-9', invalid && 'border-warn')} />
         </div>
         {valid && <a href={text.trim()} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-[12.5px] font-semibold text-brand hover:bg-sunken"><ExternalLink size={14} />Buka</a>}
       </div>
-      {text && !valid && <p className="mt-1 text-[12px] font-medium text-warn">Tautan harus diawali https://</p>}
+      
     </div>
   );
 }
@@ -269,7 +289,7 @@ export function SearchInput({ value, onChange, placeholder = 'Cari…', classNam
   return (
     <div className={cx('relative', className)}>
       <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-mute" />
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-9" />
+      <Input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="pl-9" />
       {value && <button className="absolute right-2 top-1/2 -translate-y-1/2 text-mute hover:text-ink" aria-label="Bersihkan" onClick={() => onChange('')}><X size={14} /></button>}
     </div>
   );

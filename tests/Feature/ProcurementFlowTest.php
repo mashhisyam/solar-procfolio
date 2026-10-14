@@ -22,9 +22,9 @@ function payload(array $over = []): array
     return array_merge([
         'draft' => false, 'method' => 'SPP', 'title' => 'Pengadaan Lisensi Uji', 'proc_type' => 'Barang', 'proc_method' => 'Pengadaan Langsung',
         'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'registered_at' => '2026-01-05', 'spp_number' => 'SPP/2026/BJB/000001', 'spp_date' => '2026-01-02',
-        'pengaju_name' => 'Dewi Anggraini', 'candidate_vendor_ids' => [test()->vendor->id], 'customer_contract_ids' => [test()->bakb->id],
-        'budget_code_ids' => [test()->code->id],
-        'rab_items' => [['description' => 'LISENSI UJI', 'budget_type' => 'OPEX', 'budget_code_id' => test()->code->id, 'qty' => 10, 'unit' => 'User', 'price' => 1000000]],
+        'pic_pengaju_id' => App\Models\Pic::query()->value('id'), 'candidate_vendor_ids' => [test()->vendor->id], 'customer_contract_ids' => [test()->bakb->id],
+        'budget_code_id' => test()->code->id,
+        'rab_items' => [['description' => 'LISENSI UJI', 'budget_type' => 'OPEX', 'qty' => 10, 'unit' => 'User', 'price' => 1000000]],
         'documents' => [['doc_type' => 'TOR', 'required' => true, 'available' => true, 'number' => 'TOR/001'], ['doc_type' => 'BCR (Benefit Cost Ratio)', 'required' => true, 'available' => false]],
         'workflow' => [
             ['key' => 'pengaju', 'name' => 'Pengaju', 'enabled' => true], ['key' => 'anggaran', 'name' => 'Anggaran', 'enabled' => true],
@@ -33,7 +33,7 @@ function payload(array $over = []): array
     ], $over);
 }
 
-it('menolak pengadaan tanpa dasar pelanggan', function () {
+it('menolak pengadaan tanpa perjanjian pelanggan', function () {
     $this->post('/pengadaan', payload(['customer_contract_ids' => []]))->assertSessionHasErrors('customer_contract_ids');
 });
 
@@ -77,7 +77,7 @@ it('mengunci Proses Pengadaan setelah SP2K rilis dan membentuk alur per tahap pe
     $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pengadaan', 'mode' => 'update', 'date' => '2026-01-20'])->assertSessionHasErrors('mode');
 });
 
-it('menahan tahap BA Penutupan sampai BA berstatus TTD Selesai', function () {
+it('tidak menahan BA Penutupan dan mewajibkan detail GR saat Proses GR diselesaikan', function () {
     $this->post('/pengadaan', payload());
     $p = Procurement::query()->firstOrFail();
     $this->post("/pengadaan/{$p->code}/kontrak", [
@@ -86,11 +86,15 @@ it('menahan tahap BA Penutupan sampai BA berstatus TTD Selesai', function () {
         'terms' => [['name' => 'Pelunasan (BAST)', 'planned_end' => '2026-02-10', 'percent' => 100]],
     ]);
     $term = $p->terms()->firstOrFail();
-    $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pasca', 'term_id' => $term->id, 'mode' => 'complete', 'date' => '2026-02-10', 'activity' => 'Pekerjaan Berjalan']);
-
-    // Tanpa BA selesai TTD, tahap BA tidak dapat ditutup.
-    $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pasca', 'term_id' => $term->id, 'mode' => 'complete', 'date' => '2026-02-12', 'activity' => 'Sirkuler TTD'])
-        ->assertSessionHasErrors('mode');
+    $base = ['track' => 'pasca', 'term_id' => $term->id, 'mode' => 'complete'];
+    $this->post("/pengadaan/{$p->code}/proses", $base + ['date' => '2026-02-10', 'activity' => 'Pekerjaan selesai'])->assertSessionHasNoErrors();
+    // BA Penutupan tidak lagi menunggu status TTD.
+    $this->post("/pengadaan/{$p->code}/proses", $base + ['date' => '2026-02-11', 'activity' => 'BA Fully Sign'])->assertSessionHasNoErrors();
+    // Proses GR wajib detail GR.
+    $this->post("/pengadaan/{$p->code}/proses", $base + ['date' => '2026-02-12'])->assertSessionHasErrors(['gr_number', 'gr_type', 'gr_amount', 'gr_link']);
+    $this->post("/pengadaan/{$p->code}/proses", $base + ['date' => '2026-02-12', 'gr_number' => 'GR-001', 'gr_type' => 'BAST', 'gr_amount' => 1100000, 'gr_link' => 'folder/gr-001'])
+        ->assertSessionHasNoErrors();
+    expect($term->goodsReceipt()->value('number'))->toBe('GR-001');
 });
 
 it('menandai tahap dibayar dan pengadaan selesai saat Antri Bayar ditutup', function () {
@@ -107,7 +111,8 @@ it('menandai tahap dibayar dan pengadaan selesai saat Antri Bayar ditutup', func
     $this->post("/ba/{$ba->id}/koreksi", ['status' => 'TTD Selesai', 'reason' => 'Dokumen fisik lengkap']);
 
     foreach (['pelaksanaan', 'ba', 'gr', 'invoice', 'verifikasi', 'antri'] as $i => $stage) {
-        $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pasca', 'term_id' => $term->id, 'mode' => 'complete', 'date' => '2026-02-'.str_pad((string) (10 + $i), 2, '0', STR_PAD_LEFT)])
+        $gr = $stage === 'gr' ? ['gr_number' => 'GR-UJI-9', 'gr_type' => 'BAST', 'gr_amount' => 1100000, 'gr_link' => 'https://contoh/gr'] : [];
+        $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pasca', 'term_id' => $term->id, 'mode' => 'complete', 'date' => '2026-02-'.str_pad((string) (10 + $i), 2, '0', STR_PAD_LEFT)] + $gr)
             ->assertSessionHasNoErrors();
     }
 
