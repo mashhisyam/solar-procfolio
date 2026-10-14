@@ -60,7 +60,7 @@ class ProcurementController extends Controller
 
         return Inertia::render('Procurements/Form', [
             'procurement' => [
-                ...$p->only(['code', 'spp_number', 'title', 'summary', 'method', 'proc_type', 'proc_method', 'priority', 'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'rab_value', 'pks_id', 'bak_number', 'is_draft', 'workflow']),
+                ...$p->only(['code', 'spp_number', 'title', 'summary', 'method', 'proc_type', 'category', 'proc_method', 'priority', 'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'rab_value', 'pks_id', 'bak_number', 'is_draft', 'workflow']),
                 'spp_date' => Cal::iso($p->spp_date), 'registered_at' => Cal::iso($p->registered_at), 'bak_date' => Cal::iso($p->bak_date),
                 'candidate_vendor_ids' => $p->candidateVendors->pluck('id'), 'customer_contract_ids' => $p->customerContracts->pluck('id'),
                 'budget_code_id' => $p->budgetCodes->first()?->id, 'has_contract' => (bool) $p->contract,
@@ -76,7 +76,7 @@ class ProcurementController extends Controller
     {
         $data = $this->validated($request);
         $p = DB::transaction(function () use ($data, $numbering, $request) {
-            $p = new Procurement(['code' => $numbering->nextProcurementCode((int) substr($data['registered_at'], 0, 4)), 'created_by' => $request->user()->id]);
+            $p = new Procurement(['code' => $numbering->nextProcurementCode((int) now()->format('Y')), 'created_by' => $request->user()->id]);
             $this->persist($p, $data);
             if (! $p->is_draft) {
                 $this->workflow->register($p);
@@ -93,7 +93,7 @@ class ProcurementController extends Controller
         $data = $this->validated($request, $procurement);
         DB::transaction(function () use ($procurement, $data) {
             $wasDraft = $procurement->is_draft;
-            foreach (['title' => 'Judul', 'spp_number' => 'Nomor SPP', 'priority' => 'Prioritas', 'proc_method' => 'Metode pengadaan', 'pic_pengaju_id' => 'User Pengaju'] as $k => $label) {
+            foreach (['title' => 'Judul', 'spp_number' => 'Nomor SPP', 'priority' => 'Prioritas', 'proc_method' => 'Metode pengadaan', 'category' => 'Kategori pengadaan', 'pic_pengaju_id' => 'User Pengaju'] as $k => $label) {
                 if ((string) $procurement->{$k} !== (string) ($data[$k] ?? '')) {
                     $this->audit->log($procurement->id, 'Pengadaan', $procurement->code, 'Ubah identitas', $label, $procurement->{$k}, $data[$k] ?? null);
                 }
@@ -144,7 +144,8 @@ class ProcurementController extends Controller
             'proc_method' => [$isSpp && ! $draft ? 'required' : 'nullable', 'string'],
             'priority' => ['required', Rule::in(['Normal', 'Urgent'])],
             'sub_bidang' => ['nullable', 'string', 'max:20'],
-            'registered_at' => ['required', 'date'],
+            'registered_at' => ['nullable', 'date'],
+            'category' => [$draft ? 'nullable' : 'required', 'nullable', 'string', 'max:60'],
             'spp_number' => [$isSpp ? 'required' : 'nullable', 'string', 'max:100'],
             'spp_date' => [$isSpp && ! $draft ? 'required' : 'nullable', 'date'],
             'pic_pengaju_id' => [$draft ? 'nullable' : 'required', 'nullable', 'exists:pics,id'],
@@ -200,10 +201,11 @@ class ProcurementController extends Controller
         $rab = collect($d['rab_items'] ?? [])->sum(fn ($r) => (float) $r['qty'] * (float) $r['price']);
         $p->fill([
             'spp_number' => $d['spp_number'] ?? null, 'spp_date' => $d['spp_date'] ?? null, 'title' => $d['title'], 'summary' => $d['summary'] ?? null,
-            'method' => $d['method'], 'proc_type' => $d['proc_type'] ?? null, 'proc_method' => $d['method'] === 'SPP' ? ($d['proc_method'] ?? null) : null,
+            'method' => $d['method'], 'proc_type' => $d['proc_type'] ?? null, 'category' => $d['category'] ?? null, 'proc_method' => $d['method'] === 'SPP' ? ($d['proc_method'] ?? null) : null,
             'priority' => $d['priority'], 'sub_bidang' => $d['sub_bidang'] ?? null, 'pengaju_name' => (string) Pic::query()->whereKey($d['pic_pengaju_id'] ?? 0)->value('name'),
             'pic_pengaju_id' => $d['pic_pengaju_id'] ?? null,
-            'registered_at' => $d['registered_at'], 'rab_value' => $rab,
+            // Tanggal registrasi tidak lagi diisi pengguna: otomatis tanggal pengadaan dicatat (tetap saat diedit).
+            'registered_at' => $p->registered_at ?? ($d['registered_at'] ?? now()->toDateString()), 'rab_value' => $rab,
             'pks_id' => $d['method'] === 'Kemitraan' ? ($d['pks_id'] ?? null) : null,
             'bak_number' => $d['method'] === 'Kemitraan' ? ($d['bak_number'] ?? null) : null,
             'bak_date' => $d['method'] === 'Kemitraan' ? ($d['bak_date'] ?? null) : null,
@@ -258,6 +260,7 @@ class ProcurementController extends Controller
         return [
             'options' => [
                 'procTypes' => MasterItem::labels('proc_type'),
+                'categories' => MasterItem::labels('proc_category'),
                 'procMethods' => MasterItem::labels('proc_method'),
                 'docTypes' => MasterItem::labels('doc_type'),
                 'rabUnits' => MasterItem::labels('rab_unit'),

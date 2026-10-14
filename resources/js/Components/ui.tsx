@@ -313,3 +313,74 @@ export function Bar({ value, max, tone = 'brand', marker }: { value: number; max
     </div>
   );
 }
+
+export interface SearchOpt { value: string; label: string; sub?: string | null; group?: string }
+
+/** Dropdown dengan kotak pencarian. Dipakai untuk pilihan yang panjang, seperti daftar PIC. */
+export function SearchSelect({ value, onChange, options, placeholder = 'Pilih', searchPlaceholder = 'Cari nama, jabatan atau peran', invalid, disabled, ariaLabel }: {
+  value: string; onChange: (v: string) => void; options: SearchOpt[]; placeholder?: string; searchPlaceholder?: string; invalid?: boolean; disabled?: boolean; ariaLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [hi, setHi] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    setQ(''); setHi(0);
+    setTimeout(() => inputRef.current?.focus(), 0);
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  const sel = options.find((o) => o.value === value);
+  const term = q.trim().toLowerCase();
+  const list = options.filter((o) => !term || `${o.label} ${o.sub || ''} ${o.group || ''}`.toLowerCase().includes(term));
+  const pick = (v: string) => { onChange(v); setOpen(false); };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => Math.min(list.length - 1, h + 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(0, h - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (list[hi]) pick(list[hi].value); }
+    else if (e.key === 'Escape') setOpen(false);
+  };
+  let lastGroup: string | undefined;
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel}
+        onClick={() => setOpen(!open)}
+        className={cx(inputCls, 'flex items-center justify-between gap-2 text-left disabled:opacity-60', invalid && 'border-bad ring-2 ring-bad/15')}>
+        <span className={cx('min-w-0 truncate', !sel && 'text-mute')}>{sel ? sel.label : placeholder}{sel?.sub ? <span className="text-mute"> · {sel.sub}</span> : null}</span>
+        <ChevronDown size={15} className="shrink-0 text-mute" />
+      </button>
+      {open && (
+        <div className="absolute left-0 right-0 z-40 mt-1 overflow-hidden rounded-lg border border-line bg-surface shadow-pop" onKeyDown={onKey}>
+          <div className="relative border-b border-line p-2">
+            <Search size={14} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-mute" />
+            <input ref={inputRef} type="search" value={q} onChange={(e) => { setQ(e.target.value); setHi(0); }} placeholder={searchPlaceholder} aria-label={searchPlaceholder}
+              className="h-8 w-full rounded-md border border-line bg-surface pl-8 pr-2 text-[13px] outline-none focus:border-brand" />
+          </div>
+          <ul role="listbox" className="max-h-64 overflow-y-auto py-1 text-[13px]">
+            <li><button type="button" onClick={() => pick('')} className="w-full px-3 py-1.5 text-left text-mute hover:bg-sunken">{placeholder}</button></li>
+            {list.length === 0 && <li className="px-3 py-2 text-mute">Tidak ditemukan.</li>}
+            {list.map((o, i) => {
+              const head = o.group && o.group !== lastGroup ? o.group : null;
+              lastGroup = o.group;
+              return (
+                <React.Fragment key={o.value}>
+                  {head && <li className="px-3 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-mute">{head}</li>}
+                  <li role="option" aria-selected={o.value === value}>
+                    <button type="button" onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}
+                      className={cx('flex w-full items-center gap-2 px-3 py-1.5 text-left', i === hi && 'bg-sunken', o.value === value && 'font-semibold text-brand')}>
+                      <span className="min-w-0 flex-1 truncate">{o.label}{o.sub ? <span className="font-normal text-mute"> · {o.sub}</span> : null}</span>
+                      {o.value === value && <Check size={14} className="shrink-0" />}
+                    </button>
+                  </li>
+                </React.Fragment>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

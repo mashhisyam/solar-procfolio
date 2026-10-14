@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import { CalendarClock, CheckCircle2, AlertTriangle, AlertOctagon, Clock, Circle, Flame, SkipForward, Undo2, ChevronRight, CheckCheck, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Badge, Tone as UiTone, cx, TableWrap, th, td, Select } from '@/Components/ui';
+import { Badge, Tone as UiTone, cx, TableWrap, th, td, SearchSelect } from '@/Components/ui';
 import { fmtDate, rp } from '@/lib/format';
 import type { Alert, PageProps, Pic, ProcRow, StepNode } from '@/types';
 
@@ -170,16 +170,14 @@ export function ProcLink({ code, spp, tab }: { code: string; spp?: string | null
   return <Link href={`/pengadaan/${code}${tab ? `?tab=${tab}` : ''}`} onClick={(e) => e.stopPropagation()} title={code} className="num whitespace-nowrap font-bold text-brand hover:underline">{spp || code}</Link>;
 }
 
-export function PicSelect({ value, onChange, pics, roles, placeholder = 'Pilih PIC' }: { value?: number | null; onChange: (v: number | null) => void; pics: Pic[]; roles?: string[]; placeholder?: string }) {
+export function PicSelect({ value, onChange, pics, roles, placeholder = 'Pilih PIC', invalid }: { value?: number | null; onChange: (v: number | null) => void; pics: Pic[]; roles?: string[]; placeholder?: string; invalid?: boolean }) {
   const norm = (x: string) => x.trim().toLowerCase();
   const pref = roles?.length ? pics.filter((p) => p.role && roles.map(norm).includes(norm(p.role))) : [];
   const rest = pics.filter((p) => !pref.includes(p));
+  const opt = (p: Pic, group: string) => ({ value: String(p.id), label: p.name, sub: [p.title, p.role].filter(Boolean).join(' · ') || null, group });
   return (
-    <Select value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
-      <option value="">{placeholder}</option>
-      {pref.length > 0 && <optgroup label="Disarankan">{pref.map((p) => <option key={p.id} value={p.id}>{p.name}{p.title ? ` · ${p.title}` : ''}</option>)}</optgroup>}
-      <optgroup label={pref.length ? 'Lainnya' : 'PIC'}>{rest.map((p) => <option key={p.id} value={p.id}>{p.name}{p.title ? ` · ${p.title}` : ''}</option>)}</optgroup>
-    </Select>
+    <SearchSelect value={value ? String(value) : ''} onChange={(v) => onChange(v ? Number(v) : null)} placeholder={placeholder} invalid={invalid} ariaLabel={placeholder}
+      options={[...pref.map((p) => opt(p, 'Disarankan')), ...rest.map((p) => opt(p, pref.length ? 'Lainnya' : 'PIC'))]} />
   );
 }
 
@@ -201,7 +199,7 @@ export function TrackProgress({ row }: { row: ProcRow }) {
 export type SortKey = 'priority' | 'spp' | 'title' | 'rab' | 'days' | 'update';
 const COLS: { label: string; sort?: SortKey }[] = [
   { label: 'Prioritas', sort: 'priority' }, { label: 'No SPP / ID', sort: 'spp' }, { label: 'Judul Pengadaan', sort: 'title' }, { label: 'RAB Pengadaan', sort: 'rab' },
-  { label: 'Skema / Metode' }, { label: 'User Pengaju' }, { label: 'Progres' }, { label: 'Aliran Data' }, { label: 'Aktivitas Saat Ini' },
+  { label: 'Skema / Metode' }, { label: 'User Pengaju' }, { label: 'Aliran Data' }, { label: 'Aktivitas Saat Ini' },
   { label: 'PIC Aliran Data' }, { label: 'Durasi Tahap', sort: 'days' }, { label: 'Status' }, { label: 'Last Update', sort: 'update' },
 ];
 export function sortRows(rows: ProcRow[], k: SortKey, dir: 1 | -1): ProcRow[] {
@@ -225,7 +223,6 @@ export function ProcTable({ rows, sort, onSort }: { rows: ProcRow[]; sort?: { k:
           <td className={cx(td, 'num whitespace-nowrap text-right font-semibold')}>{r.rab_value ? rp(r.rab_value) : '–'}</td>
           <td className={cx(td, 'min-w-[120px]')}><Badge tone={r.method === 'SPP' ? 'navy' : 'teal'}>{r.method}</Badge>{r.proc_method && <div className="mt-1 whitespace-nowrap text-[11.5px] text-mute">{r.proc_method}</div>}</td>
           <td className={cx(td, 'whitespace-nowrap')}>{r.pengaju_name || '–'}</td>
-          <td className={td}><TrackProgress row={r} /></td>
           <td className={cx(td, 'min-w-[150px]')}><div className="text-[11px] font-semibold text-mute">{r.track === 'pasca' ? 'Pasca Pengadaan' : r.amendment ? 'Amandemen' : 'Proses Pengadaan'}</div><div className="font-semibold">{r.stage || '–'}{r.cycle > 1 && <span className="ml-1 text-[11.5px] text-warn">siklus {r.cycle}</span>}</div></td>
           <td className={cx(td, 'min-w-[130px]')}>{r.activity || '–'}</td>
           <td className={cx(td, 'whitespace-nowrap')}>{r.pic || '–'}</td>

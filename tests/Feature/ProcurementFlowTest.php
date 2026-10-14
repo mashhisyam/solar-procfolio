@@ -20,7 +20,7 @@ beforeEach(function () {
 function payload(array $over = []): array
 {
     return array_merge([
-        'draft' => false, 'method' => 'SPP', 'title' => 'Pengadaan Lisensi Uji', 'proc_type' => 'Barang', 'proc_method' => 'Pengadaan Langsung',
+        'draft' => false, 'method' => 'SPP', 'title' => 'Pengadaan Lisensi Uji', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung',
         'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'registered_at' => '2026-01-05', 'spp_number' => 'SPP/2026/BJB/000001', 'spp_date' => '2026-01-02',
         'pic_pengaju_id' => App\Models\Pic::query()->value('id'), 'candidate_vendor_ids' => [test()->vendor->id], 'customer_contract_ids' => [test()->bakb->id],
         'budget_code_id' => test()->code->id,
@@ -42,7 +42,7 @@ it('menolak SPP tanpa nomor SPP, termasuk draft', function () {
 });
 
 it('mendaftarkan pengadaan dan memulai tahap Pengaju', function () {
-    $this->post('/pengadaan', payload())->assertRedirect();
+    $this->post('/pengadaan', payload())->assertSessionHasNoErrors()->assertRedirect();
     $p = Procurement::query()->firstOrFail();
 
     expect($p->rab_value)->toEqual('10000000.00')
@@ -50,7 +50,7 @@ it('mendaftarkan pengadaan dan memulai tahap Pengaju', function () {
 });
 
 it('mengunci Proses Pengadaan setelah SP2K rilis dan membentuk alur per tahap pembayaran', function () {
-    $this->post('/pengadaan', payload());
+    $this->post('/pengadaan', payload())->assertSessionHasNoErrors()->assertRedirect();
     $p = Procurement::query()->firstOrFail();
     $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pengadaan', 'mode' => 'complete', 'date' => '2026-01-07', 'activity' => 'Review Dokumen']);
     $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pengadaan', 'mode' => 'complete', 'date' => '2026-01-12', 'activity' => 'Approval']);
@@ -78,13 +78,13 @@ it('mengunci Proses Pengadaan setelah SP2K rilis dan membentuk alur per tahap pe
 });
 
 it('tidak menahan BA Penutupan dan mewajibkan detail GR saat Proses GR diselesaikan', function () {
-    $this->post('/pengadaan', payload());
+    $this->post('/pengadaan', payload())->assertSessionHasNoErrors()->assertRedirect();
     $p = Procurement::query()->firstOrFail();
     $this->post("/pengadaan/{$p->code}/kontrak", [
         'kind' => 'SP2K', 'number' => 'SP2K/UJI/002', 'title' => 'Uji', 'vendor_id' => $this->vendor->id, 'date' => '2026-01-15',
         'kickoff_date' => '2026-01-19', 'value_excl' => 1000000, 'value_incl' => 1100000, 'close_stage' => true,
         'terms' => [['name' => 'Pelunasan (BAST)', 'planned_end' => '2026-02-10', 'percent' => 100]],
-    ]);
+    ])->assertSessionHasNoErrors();
     $term = $p->terms()->firstOrFail();
     $base = ['track' => 'pasca', 'term_id' => $term->id, 'mode' => 'complete'];
     $this->post("/pengadaan/{$p->code}/proses", $base + ['date' => '2026-02-10', 'activity' => 'Pekerjaan selesai'])->assertSessionHasNoErrors();
@@ -98,13 +98,13 @@ it('tidak menahan BA Penutupan dan mewajibkan detail GR saat Proses GR diselesai
 });
 
 it('menandai tahap dibayar dan pengadaan selesai saat Antri Bayar ditutup', function () {
-    $this->post('/pengadaan', payload());
+    $this->post('/pengadaan', payload())->assertSessionHasNoErrors()->assertRedirect();
     $p = Procurement::query()->firstOrFail();
     $this->post("/pengadaan/{$p->code}/kontrak", [
         'kind' => 'SP2K', 'number' => 'SP2K/UJI/003', 'title' => 'Uji', 'vendor_id' => $this->vendor->id, 'date' => '2026-01-15',
         'kickoff_date' => '2026-01-19', 'value_excl' => 1000000, 'value_incl' => 1100000, 'close_stage' => true,
         'terms' => [['name' => 'Pelunasan (BAST)', 'planned_end' => '2026-02-10', 'percent' => 100]],
-    ]);
+    ])->assertSessionHasNoErrors();
     $term = $p->terms()->firstOrFail();
     $this->post("/pengadaan/{$p->code}/ba", ['type' => 'BAST', 'title' => 'Serah terima', 'number' => 'BA/UJI/001', 'date' => '2026-02-10', 'term_ids' => [$term->id]]);
     $ba = $p->beritaAcara()->firstOrFail();
@@ -118,4 +118,31 @@ it('menandai tahap dibayar dan pengadaan selesai saat Antri Bayar ditutup', func
 
     expect($term->fresh()->paid_at->toDateString())->toBe('2026-02-15')
         ->and(app(App\Services\ProcurementInsight::class)->status($p->fresh()->load(App\Services\ProcurementInsight::WITH)))->toBe('Selesai');
+});
+
+it('Revisi Minor kembali ke pengaju lalu langsung ke tahap asal tanpa mengulang approval', function () {
+    $this->post('/pengadaan', payload())->assertSessionHasNoErrors()->assertRedirect();
+    $p = Procurement::query()->firstOrFail();
+    $go = fn (array $d) => $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pengadaan', 'activity' => 'Review Dokumen'] + $d);
+    $go(['mode' => 'complete', 'date' => '2026-01-06']);
+    $go(['mode' => 'complete', 'date' => '2026-01-07']); // sekarang di lakdan
+    $go(['mode' => 'skip', 'date' => '2026-01-08', 'note' => 'coba lewati'])->assertSessionHasErrors('mode');
+    $go(['mode' => 'rev_minor', 'date' => '2026-01-08', 'note' => 'TOR perlu dilengkapi'])->assertSessionHasNoErrors();
+    expect($p->visits()->where('status', 'Dalam Proses')->value('stage_key'))->toBe('pengaju');
+    $go(['mode' => 'complete', 'date' => '2026-01-09'])->assertSessionHasNoErrors();
+    expect($p->visits()->where('status', 'Dalam Proses')->value('stage_key'))->toBe('lakdan')
+        ->and($p->visits()->where('stage_key', 'anggaran')->where('status', 'Dilewati')->exists())->toBeFalse();
+});
+
+it('Revisi Mayor mengulang approval dari awal dan menambah siklus', function () {
+    $this->post('/pengadaan', payload())->assertSessionHasNoErrors()->assertRedirect();
+    $p = Procurement::query()->firstOrFail();
+    $go = fn (array $d) => $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pengadaan', 'activity' => 'Review Dokumen'] + $d);
+    $go(['mode' => 'complete', 'date' => '2026-01-06']);
+    $go(['mode' => 'complete', 'date' => '2026-01-07']);
+    $go(['mode' => 'rev_major', 'date' => '2026-01-08', 'note' => 'Spesifikasi berubah total'])->assertSessionHasNoErrors();
+    $go(['mode' => 'complete', 'date' => '2026-01-09'])->assertSessionHasNoErrors();
+    $p->refresh()->load(App\Services\ProcurementInsight::WITH);
+    expect($p->visits()->where('status', 'Dalam Proses')->value('stage_key'))->toBe('anggaran')
+        ->and(app(App\Services\ProcurementInsight::class)->approvalCycle($p))->toBe(2);
 });

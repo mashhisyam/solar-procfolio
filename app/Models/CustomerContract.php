@@ -11,9 +11,9 @@ class CustomerContract extends Model
 {
     public const KINDS = ['BAKB', 'MoM Kesepakatan Harga', 'Kontrak Pelanggan'];
 
-    protected $fillable = ['kind', 'number', 'title', 'customer_id', 'date', 'link'];
+    protected $fillable = ['kind', 'number', 'title', 'customer_id', 'date', 'revenue', 'link'];
 
-    protected $casts = ['date' => 'date'];
+    protected $casts = ['date' => 'date', 'revenue' => 'decimal:2'];
 
     public function customer(): BelongsTo
     {
