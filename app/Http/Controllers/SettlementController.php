@@ -47,6 +47,8 @@ class SettlementController extends Controller
             'number' => ['required_if:status,GR Terbit', 'nullable', 'string', 'max:120', Rule::unique('goods_receipts', 'number')->ignore($term->goodsReceipt?->id)],
             'submitted_at' => ['required_unless:status,Belum Diajukan', 'nullable', 'date'],
             'gr_date' => ['required_if:status,GR Terbit', 'nullable', 'date'],
+            'gr_type' => ['nullable', Rule::in(\App\Models\GoodsReceipt::TYPES)],
+            'amount' => ['nullable', 'numeric', 'gt:0'],
             'source_app' => ['nullable', 'string', 'max:60'],
             'pic_id' => ['nullable', 'exists:pics,id'],
             'link' => ['nullable', new DocumentLink],

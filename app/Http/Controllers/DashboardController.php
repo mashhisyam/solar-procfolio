@@ -30,7 +30,7 @@ class DashboardController extends Controller
             ],
             'filters' => [
                 'pengaju' => $rows->pluck('pengaju_name')->unique()->sort()->values(),
-                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'number']),
+                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'kind', 'number']),
             ],
         ]);
     }

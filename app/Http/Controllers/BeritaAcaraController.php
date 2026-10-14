@@ -25,19 +25,20 @@ class BeritaAcaraController extends Controller
 
     public function index(): Response
     {
-        $rows = BeritaAcara::query()->with(['procurement:id,code,spp_number,title', 'rounds.signatories'])->latest('date')->get()
+        $rows = BeritaAcara::query()->with(['procurement:id,code,spp_number,title', 'rounds.signatories', 'terms:id,seq'])->latest('date')->get()
             ->map(fn (BeritaAcara $b) => [
                 ...$b->only(['id', 'type', 'number', 'title', 'sub_bidang', 'contract_ref_type', 'contract_ref_number', 'link']),
                 'date' => Cal::iso($b->date), ...$this->insight->baInfo($b),
                 'procurement' => $b->procurement->only(['code', 'spp_number', 'title']),
+                'term_seqs' => $b->terms->pluck('seq')->sort()->values(),
             ]);
 
         return Inertia::render('BeritaAcara/Index', ['rows' => $rows, 'types' => MasterItem::labels('ba_type')]);
     }
 
-    public function create(Procurement $procurement): Response
+    public function create(Request $request, Procurement $procurement): Response
     {
-        return Inertia::render('BeritaAcara/Form', $this->formProps($procurement, null));
+        return Inertia::render('BeritaAcara/Form', [...$this->formProps($procurement, null), 'presetTermId' => $request->integer('tahap') ?: null]);
     }
 
     public function edit(BeritaAcara $ba): Response

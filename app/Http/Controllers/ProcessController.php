@@ -26,6 +26,15 @@ class ProcessController extends Controller
             'note' => ['nullable', 'string'],
             'target' => ['nullable', 'string'],
             'target_pic_id' => ['nullable', 'exists:pics,id'],
+            // Penyelesaian Proses GR (wajib saat menyelesaikan tahap GR)
+            'gr_number' => ['nullable', 'string', 'max:120'],
+            'gr_type' => ['nullable', Rule::in(\App\Models\GoodsReceipt::TYPES)],
+            'gr_amount' => ['nullable', 'numeric', 'gt:0'],
+            'gr_link' => ['nullable', 'string', 'max:1000'],
+            // Invoice (opsional saat menyelesaikan Invoicing)
+            'invoice_number' => ['nullable', 'string', 'max:120'],
+            'invoice_date' => ['nullable', 'date'],
+            'invoice_amount' => ['nullable', 'numeric', 'gt:0'],
         ]);
         $res = $this->workflow->updateProcess($procurement, $d);
 
