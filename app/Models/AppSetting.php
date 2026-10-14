@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Support\SettingsMemo;
 use Illuminate\Support\Facades\Cache;
 
 class AppSetting extends Model
@@ -28,9 +29,11 @@ class AppSetting extends Model
 
     public static function get(string $key): mixed
     {
-        $all = Cache::remember('app_settings', 300, fn () => static::query()->pluck('value', 'key')->all());
+        // Dibaca dari cache sekali per permintaan; tanpa memo ini tiap pemanggilan memicu satu query ke tabel cache.
+        $memo = app(SettingsMemo::class);
+        $memo->all ??= Cache::remember('app_settings', 300, fn () => static::query()->pluck('value', 'key')->all());
 
-        return $all[$key] ?? (self::DEFAULTS[$key] ?? null);
+        return $memo->all[$key] ?? (self::DEFAULTS[$key] ?? null);
     }
 
     /** @return array<string, mixed> */
@@ -43,5 +46,6 @@ class AppSetting extends Model
     {
         static::query()->updateOrCreate(['key' => $key], ['value' => $value]);
         Cache::forget('app_settings');
+        app(SettingsMemo::class)->all = null;
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Support\SettingsMemo;
 use App\Support\WorkdayCalendar;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -14,6 +15,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(WorkdayCalendar::class);
+        $this->app->scoped(SettingsMemo::class);
     }
 
     public function boot(): void
