@@ -32,6 +32,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class);
     Route::get('/pengadaan', [ProcurementController::class, 'index']);
     Route::get('/rkap', [RkapController::class, 'index']);
+    Route::get('/rkap/{budgetCode}', [RkapController::class, 'show'])->whereNumber('budgetCode');
     Route::get('/pengadaan/baru', [ProcurementController::class, 'create'])->middleware('can:edit');
     Route::get('/pengadaan/{procurement}', [ProcurementController::class, 'show']);
     Route::get('/pengadaan/{procurement}/edit', [ProcurementController::class, 'edit'])->middleware('can:edit');

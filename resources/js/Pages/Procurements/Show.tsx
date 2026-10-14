@@ -12,7 +12,7 @@ import type { Alert, BaSummary, CurrentVisit, HistoryVisit, PageProps, Pic, Proc
 type Doc = { id: number; doc_type: string; number: string | null; title: string | null; date: string | null; required: boolean; available: boolean; link: string | null; note: string | null; customer: string | null };
 interface Props {
   procurement: {
-    code: string; spp_number: string | null; spp_date: string | null; title: string; summary: string | null; method: 'SPP' | 'Kemitraan'; proc_type: string | null; proc_method: string | null;
+    code: string; spp_number: string | null; spp_date: string | null; title: string; summary: string | null; method: 'SPP' | 'Kemitraan'; proc_type: string | null; category: string | null; proc_method: string | null;
     priority: 'Normal' | 'Urgent'; sub_bidang: string | null; pengaju_name: string; registered_at: string; rab_value: number; is_draft: boolean; cancelled: boolean; cancel_reason: string | null;
     status: string; post_state: string; process_days: number; last_update: string; last_update_days: number; bak_number: string | null; bak_date: string | null;
     pks: { id: number; number: string; title: string; partner: string | null; label: string; end_date: string | null; future: number } | null;
@@ -22,7 +22,8 @@ interface Props {
     customer_contracts: { id: number; kind: string; number: string; title: string; customer: string | null; link: string | null }[];
   };
   header: ProcRow; alerts: Alert[];
-  approval: { nodes: StepNode[]; history: HistoryVisit[]; current: CurrentVisit | null; stages: StageDef[]; all_stages: StageDef[]; locked: boolean; can_reopen: boolean };
+  approval: { nodes: StepNode[]; history: HistoryVisit[]; current: CurrentVisit | null; stages: StageDef[]; all_stages: StageDef[]; locked: boolean; can_reopen: boolean; cycle: number; resume_stage: string | null };
+  all_documents: { source: string; type: string; number: string | null; date: string | null; link: string | null; info: string | null; href: string | null; doc_id: number | null }[];
   amendment: { id: number; seq: number; reason: string; proposal: string | null; change_types: string[]; nodes: StepNode[] } | null;
   contract: { id: number; kind: string; number: string; title: string; vendor: string | null; vendor_id: number; date: string | null; kickoff_date: string | null; end_date: string | null; value_excl: number; value_incl: number; scope: string | null; link: string | null;
     amendments: { id: number; seq: number; status: string; reason: string; requested_at: string | null; number: string | null; date: string | null; change_types: string[]; description: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; proposal: string | null; link: string | null }[] } | null;
@@ -84,7 +85,7 @@ export default function ProcurementShow(props: Props) {
 
       <Tabs className="mb-5" value={tab} onChange={go} tabs={[
         { key: 'ringkasan', label: 'Ringkasan', dot: alerts.length > 0 }, { key: 'proses', label: 'Histori Proses Pengadaan', count: approval.history.filter((x) => x.status !== 'Dilewati').length },
-        { key: 'dokumen', label: 'Dokumen', count: `${documents.filter((d) => d.required && d.available).length}/${documents.filter((d) => d.required).length}` },
+        { key: 'dokumen', label: 'Dokumen', count: props.all_documents.length },
         { key: 'kontrak', label: 'Kontrak', count: contract ? 1 : 0 }, { key: 'pasca', label: 'Pasca Pengadaan', count: terms.length }, { key: 'riwayat', label: 'Riwayat Perubahan', count: history.length },
       ]} />
 
@@ -97,9 +98,9 @@ export default function ProcurementShow(props: Props) {
               <div className="p-5"><KV cols={3} items={[
                 ['ID monitoring', <span key="c" className="num">{p.code}</span>], [p.method === 'SPP' ? 'Nomor SPP' : 'Nomor pengajuan', p.spp_number || '–'], ['User Pengaju', p.pengaju_name || '–'],
                 ['Nilai RAB', <span key="r" className="num">{rp(p.rab_value)}</span>], ['PRK', p.budget_codes.map((b) => `${b.code} · ${b.program}`).join(', ') || '–'], ['Skema / jenis', `${p.method} · ${p.proc_type || '–'}`],
-                ...(p.method === 'SPP' ? [['Metode pengadaan', p.proc_method || '–']] as [string, string][] : []), ['Sub bidang', p.sub_bidang || '–'], ['Tanggal registrasi', fmtDate(p.registered_at)], ['Tanggal SPP', fmtDate(p.spp_date)],
+                ...(p.method === 'SPP' ? [['Metode pengadaan', p.proc_method || '–']] as [string, string][] : []), ['Sub bidang', p.sub_bidang || '–'], ['Kategori pengadaan', p.category || '–'], ['Tanggal SPP', fmtDate(p.spp_date)],
                 [p.method === 'Kemitraan' ? 'Calon mitra' : 'Calon vendor', <span key="v" className="flex flex-wrap gap-1">{p.candidate_vendors.map((c) => <Badge key={c.id} tone={p.vendor_id === c.id ? 'ok' : 'outline'}>{c.name}{p.vendor_id === c.id ? ' · pemenang' : ''}</Badge>)}</span>],
-                ['Ringkasan kebutuhan', p.summary || '–'],
+                ['Detail pengadaan', p.summary || '–'],
               ]} /></div>
             </Card>
             <Card>
@@ -130,17 +131,33 @@ export default function ProcurementShow(props: Props) {
       {tab === 'proses' && (
         <Card>
           <CardHead title="Histori Proses Pengadaan" desc={approval.locked ? `Terkunci sejak ${contract?.kind} ${contract?.number} rilis. Perubahan hanya melalui amandemen.` : undefined}
-            actions={can && (approval.current ? <><Button size="sm" variant="primary" icon={RefreshCw} onClick={() => openUpdate('pengadaan')}>Update Proses</Button><Button size="sm" onClick={() => openUpdate('pengadaan', undefined, 'return')}>Kembalikan</Button><Button size="sm" onClick={() => openUpdate('pengadaan', undefined, 'skip')}>Lewati</Button></> : approval.can_reopen ? <ReopenControl code={p.code} stages={approval.all_stages} /> : approval.locked && !amendment ? <Button size="sm" icon={FileSignature} onClick={() => setModal('amendReq')}>Ajukan Amandemen</Button> : undefined)} />
+            actions={can && (approval.current ? <><Button size="sm" variant="primary" icon={RefreshCw} onClick={() => openUpdate('pengadaan')}>Update Proses</Button><Button size="sm" className="!border-warn/50 !text-warn" onClick={() => openUpdate('pengadaan', undefined, 'rev_minor')}>Rev Minor</Button><Button size="sm" className="!border-bad/50 !text-bad" onClick={() => openUpdate('pengadaan', undefined, 'rev_major')}>Rev Mayor</Button></> : approval.can_reopen ? <ReopenControl code={p.code} stages={approval.all_stages} /> : approval.locked && !amendment ? <Button size="sm" icon={FileSignature} onClick={() => setModal('amendReq')}>Ajukan Amandemen</Button> : undefined)} />
           <History visits={approval.history} />
         </Card>
       )}
 
       {tab === 'dokumen' && (
         <Card>
-          <CardHead title="Dokumen pengadaan" actions={can && <Button size="sm" icon={Plus} onClick={() => setDocModal({ open: true, doc: null })}>Tambah dokumen</Button>} />
-          <TableWrap><thead><tr>{['Jenis', 'Nomor', 'Tanggal', 'Wajib', 'Status', 'Tautan', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-            <tbody>{documents.map((d) => <tr key={d.id}><td className={cx(td, 'font-semibold')}>{d.doc_type}</td><td className={cx(td, 'num')}>{d.number || '–'}</td><td className={td}>{fmtDate(d.date)}</td><td className={td}>{d.required ? 'Wajib' : 'Opsional'}</td><td className={td}><StatusBadge status={d.available ? 'Tersedia' : 'Belum Tersedia'} /></td><td className={td}><LinkButton url={d.link} label="Buka" /></td><td className={td}>{can && <Button size="xs" variant="ghost" icon={Pencil} onClick={() => setDocModal({ open: true, doc: d })}>Ubah</Button>}</td></tr>)}</tbody>
-          </TableWrap>
+          <CardHead title="Seluruh dokumen pengadaan" desc="Dokumen pengadaan, perjanjian pelanggan, kontrak, Berita Acara, GR, dan invoice yang terkait pengadaan ini."
+            actions={can && <Button size="sm" icon={Plus} onClick={() => setDocModal({ open: true, doc: null })}>Tambah dokumen</Button>} />
+          {props.all_documents.length === 0 ? <EmptyState compact icon={FileStack} title="Belum ada dokumen" /> : (
+            <TableWrap><thead><tr>{['Sumber', 'Jenis', 'Nomor', 'Tanggal', 'Keterangan', 'Tautan', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
+              <tbody>{props.all_documents.map((d, k) => {
+                const doc = d.doc_id ? documents.find((x) => x.id === d.doc_id) : null;
+                return (
+                  <tr key={k}>
+                    <td className={cx(td, 'whitespace-nowrap')}><Badge tone={d.source === 'Dokumen pengadaan' ? 'navy' : d.source === 'Berita Acara' ? 'teal' : d.source === 'Kontrak' ? 'brand' : 'outline'}>{d.source}</Badge></td>
+                    <td className={cx(td, 'font-semibold')}>{d.type}</td>
+                    <td className={cx(td, 'num')}>{d.number || '–'}</td>
+                    <td className={cx(td, 'whitespace-nowrap')}>{fmtDate(d.date)}</td>
+                    <td className={cx(td, 'text-[12.5px] text-mute')}>{d.info || '–'}</td>
+                    <td className={td}><LinkButton url={d.link} label="Buka" /></td>
+                    <td className={cx(td, 'whitespace-nowrap')}>{doc && can ? <Button size="xs" variant="ghost" icon={Pencil} onClick={() => setDocModal({ open: true, doc })}>Ubah</Button> : d.href ? <Link href={d.href} className="text-[12.5px] font-semibold text-brand hover:underline">Lihat</Link> : null}</td>
+                  </tr>
+                );
+              })}</tbody>
+            </TableWrap>
+          )}
         </Card>
       )}
 
@@ -207,7 +224,7 @@ function ProgressPanel({ procurement: p, approval, amendment, contract, terms, b
   const cur = approval.current;
   const orig = cur && !cur.amendment_id ? cur : null;
   const paid = terms.filter((t) => t.paid_at).length;
-  const st1 = orig ? `${orig.stage}${orig.cycle > 1 ? ` (siklus ${orig.cycle})` : ''} · ${orig.days ?? 0} hari kerja` : contract ? `Selesai · ${contract.kind} rilis ${fmtDate(contract.date)} · terkunci` : approval.history.length ? `Approval selesai · ${p.method === 'SPP' ? 'SP2K' : 'PO'} belum dirilis` : 'Belum dimulai';
+  const st1 = orig ? `${approval.cycle > 1 ? `Siklus approval ${approval.cycle} · ` : ''}${orig.stage} · ${orig.days ?? 0} hari kerja${approval.resume_stage ? ` · Revisi Minor, kembali ke ${approval.resume_stage}` : ''}` : contract ? `Selesai · ${contract.kind} rilis ${fmtDate(contract.date)} · terkunci` : approval.history.length ? `Approval selesai · ${p.method === 'SPP' ? 'SP2K' : 'PO'} belum dirilis` : 'Belum dimulai';
   const head = (n: number, title: string, status: string, tone: 'ok' | 'run' | 'idle', action: React.ReactNode, tab: string) => (
     <div className="min-w-0">
       <div className="flex items-center gap-2"><span className={cx('num flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold', tone === 'ok' ? 'bg-ok text-white' : tone === 'run' ? 'bg-brand text-white' : 'bg-sunken text-mute')}>{n}</span><span className="text-[14px] font-bold">{title}</span></div>
@@ -279,6 +296,7 @@ function TermDetail({ code, t, bas, can, onUpdate, onGr, onInv }: { code: string
             {can && <><Button size="sm" variant="ghost" onClick={onGr}>{t.gr ? `GR: ${t.gr.status}` : 'Catat GR'}</Button><Button size="sm" variant="ghost" onClick={onInv}>{t.invoice ? `Invoice: ${t.invoice.status}` : 'Catat invoice'}</Button></>}
           </div>
           <div className="px-5 py-5"><Stepper nodes={t.nodes} /></div>
+          {(t.bucket_code || t.bucket_link) && <div className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3 text-[13px]"><span className="text-mute">Bucket invoicing</span><b className="num">{t.bucket_code || '–'}</b><LinkButton url={t.bucket_link} label="Buka" /></div>}
           <TermBaList code={code} t={t} bas={bas} can={can} />
           <History visits={t.history} />
         </div>
@@ -320,7 +338,7 @@ function History({ visits }: { visits: HistoryVisit[] }) {
         <li key={v.id} className="rounded-xl border border-line p-4">
           <div className="flex flex-wrap items-center gap-2"><b className="text-[14px]">{v.stage}</b>{v.cycle > 1 && <Badge tone="warn">siklus {v.cycle}</Badge>}{v.amendment_id && <Badge tone="warn">amandemen</Badge>}<StatusBadge status={v.status} /><span className="ml-auto text-[12px] text-mute">{fmtDate(v.entered_at)} → {v.completed_at ? fmtDate(v.completed_at) : 'sekarang'}</span></div>
           <div className="mt-2 grid grid-cols-3 gap-3 text-[12.5px]"><div><span className="text-mute">PIC</span><div className="font-semibold">{v.pic || '–'}</div></div><div><span className="text-mute">Aktivitas terakhir</span><div className="font-semibold">{v.activity || '–'}</div></div><div><span className="text-mute">Durasi</span><div className="num font-semibold">{v.days !== null ? `${v.days} hari kerja` : 'terjadwal'}</div></div></div>
-          {v.return_reason && <p className="mt-2 rounded-lg bg-warnsoft px-3 py-1.5 text-[12.5px] text-warn">Alasan: {v.return_reason}</p>}
+          {v.return_reason && <p className={cx('mt-2 rounded-lg px-3 py-1.5 text-[12.5px]', v.return_type === 'mayor' ? 'bg-badsoft text-bad' : 'bg-warnsoft text-warn')}>{v.return_type === 'mayor' ? 'Revisi Mayor — approval diulang dari awal. ' : v.return_type === 'minor' ? 'Revisi Minor — kembali ke tahap ini setelah pengaju memperbaiki. ' : ''}Alasan: {v.return_reason}</p>}
           {v.activities.length > 0 && <ul className="mt-3 space-y-1 border-t border-line pt-2 text-[12.5px]">{v.activities.map((a, i) => <li key={i} className="flex gap-2"><span className="num w-[86px] shrink-0 text-mute">{fmtDate(a.date)}</span><Badge tone="outline">{a.category}</Badge><span className="min-w-0">{a.note}</span></li>)}</ul>}
         </li>
       ))}

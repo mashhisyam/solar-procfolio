@@ -10,6 +10,7 @@ class MasterItem extends Model
     public const GROUPS = [
         'proc_method' => 'Metode pengadaan (SPP)',
         'proc_type' => 'Jenis pengadaan',
+        'proc_category' => 'Kategori pengadaan',
         'activity' => 'Kategori aktivitas',
         'doc_type' => 'Jenis dokumen',
         'ba_type' => 'Jenis BA',

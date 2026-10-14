@@ -20,6 +20,7 @@ class ReferenceSeeder extends Seeder
         $lists = [
             'proc_method' => ['Pengadaan Langsung', 'Penunjukan Langsung', 'Tender Terbatas', 'Tender Terbuka', 'Seleksi Langsung'],
             'proc_type' => ['Barang', 'Jasa', 'Barang & Jasa', 'Sewa'],
+            'proc_category' => ['Lisensi', 'Non Lisensi'],
             'activity' => ['Review Dokumen', 'Approval', 'Disposisi', 'Klarifikasi', 'Penyusunan RKS', 'Negosiasi', 'SP2K Rilis', 'PO Rilis',
                 'Pekerjaan Berjalan', 'Penyusunan BA', 'Sirkuler TTD', 'Pengajuan GR', 'Posting GR', 'Penerimaan Invoice', 'Kelengkapan Dokumen',
                 'Verifikasi Dokumen', 'Penjadwalan Pembayaran', 'Pembuatan BA', 'Sirkuler BA', 'Revisi BA', 'BA Fully Sign', 'Lainnya'],

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class BudgetCode extends Model
 {
-    protected $fillable = ['coa', 'cost_center', 'code', 'program', 'klasifikasi', 'budget_amount', 'year', 'active'];
+    protected $fillable = ['coa', 'cost_center', 'sub_bidang', 'code', 'program', 'klasifikasi', 'budget_amount', 'year', 'active'];
 
     protected $casts = ['active' => 'boolean', 'budget_amount' => 'decimal:2'];
 

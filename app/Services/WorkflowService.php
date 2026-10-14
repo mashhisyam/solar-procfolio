@@ -241,7 +241,10 @@ class WorkflowService
             $activity = $d['activity'] ?? $v->activity;
             $target = $d['target'] ?? null;
             $targetPic = $d['target_pic_id'] ?? null;
-            $next = self::next($list, $v->stage_key);
+            // Revisi Minor: setelah pengaju selesai, langsung kembali ke tahap yang mengembalikan.
+            $resume = $v->resume_key ? ($list[self::index($list, $v->resume_key)] ?? null) : null;
+            $next = $resume ?: self::next($list, $v->stage_key);
+            $first = collect($list)->first(fn ($s) => $s['enabled'] ?? true);
             $term = $termId ? PaymentTerm::query()->find($termId) : null;
             $subject = $term ? "Tahap {$term->seq}" : ($amendmentId ? 'Amandemen' : 'Proses Pengadaan');
 
@@ -249,6 +252,19 @@ class WorkflowService
             $start = $entered ?: Cal::iso($v->entered_at);
             if ($date < $start && ! ($track === Track::Pasca && $v->stage_key === 'pelaksanaan')) {
                 $errors['date'] = 'Tanggal kegiatan tidak boleh sebelum tanggal masuk tahap ('.Cal::iso($v->entered_at).').';
+            }
+            if ($track === Track::Pengadaan && in_array($mode, ['skip', 'move', 'return'], true)) {
+                $errors['mode'] = 'Pada Proses Pengadaan gunakan Revisi Minor atau Revisi Mayor untuk mengembalikan; tahap tidak dapat dilewati.';
+            }
+            if (in_array($mode, ['rev_minor', 'rev_major'], true)) {
+                if ($track !== Track::Pengadaan) {
+                    $errors['mode'] = 'Revisi Minor/Mayor hanya untuk Proses Pengadaan.';
+                } elseif (! $first || $first['key'] === $v->stage_key) {
+                    $errors['mode'] = 'Proses sudah berada di tahap pengaju.';
+                }
+                if (mb_strlen($note) < 5) {
+                    $errors['note'] = 'Alasan revisi wajib diisi.';
+                }
             }
             if (in_array($mode, ['return', 'skip'], true) && mb_strlen($note) < 5) {
                 $errors['note'] = $mode === 'return' ? 'Alasan pengembalian wajib diisi.' : 'Alasan melewati tahap wajib diisi.';
@@ -298,6 +314,13 @@ class WorkflowService
             }
             $v->save();
 
+            if ($term && $v->stage_key === 'invoice' && (array_key_exists('bucket_code', $d) || array_key_exists('bucket_link', $d))) {
+                $bucket = ['bucket_code' => $d['bucket_code'] ?? null, 'bucket_link' => $d['bucket_link'] ?? null];
+                if ($bucket['bucket_code'] !== $term->bucket_code || $bucket['bucket_link'] !== $term->bucket_link) {
+                    $this->audit->log($p->id, 'Tahap Pembayaran', $term->id, 'Kode bucket invoicing', "Bucket Tahap {$term->seq}", $term->bucket_code, $bucket['bucket_code']);
+                    $term->update($bucket);
+                }
+            }
             $msg = '';
             $after = null;
             switch ($mode) {
@@ -370,6 +393,25 @@ class WorkflowService
                     $targetName = $list[self::index($list, $target)]['name'] ?? $target;
                     $this->audit->log($p->id, 'Tahap', $v->id, 'Pindah tahap', $subject, $v->stage_name, $targetName, $note ?: null);
                     $msg = "Pindah ke {$targetName}.";
+                    break;
+
+                case 'rev_minor':
+                case 'rev_major':
+                    $minor = $mode === 'rev_minor';
+                    $label = $minor ? 'Revisi Minor' : 'Revisi Mayor';
+                    $this->closeVisit($v, $date, VisitStatus::Returned, null, $note);
+                    $v->update(['return_type' => $minor ? 'minor' : 'mayor']);
+                    $pic = $targetPic ?: (str_starts_with($first['key'], 'pengaju') ? $p->pic_pengaju_id : ($first['pic_id'] ?? null));
+                    $back = $this->startVisit($p, $first['key'], $date, $pic, 'Klarifikasi', "{$label} dari {$v->stage_name}: {$note}", $track, null, $amendmentId);
+                    if ($minor) {
+                        $back->update(['resume_key' => $v->stage_key]);
+                    }
+                    $cycle = StageVisit::query()->where('procurement_id', $p->id)->where('track', $track->value)
+                        ->where('amendment_id', $amendmentId)->where('return_type', 'mayor')->count() + 1;
+                    $this->audit->log($p->id, 'Tahap', $v->id, $label, $subject, $v->stage_name, $first['name'], $note);
+                    $msg = $minor
+                        ? "Revisi Minor: dikembalikan ke {$first['name']}. Setelah diperbaiki, proses langsung kembali ke {$v->stage_name}."
+                        : "Revisi Mayor: dikembalikan ke {$first['name']}. Approval diulang dari awal (siklus {$cycle}).";
                     break;
 
                 case 'skip':

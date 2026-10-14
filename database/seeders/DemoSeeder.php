@@ -46,14 +46,14 @@ class DemoSeeder extends Seeder
         $teguh = $pic('Teguh Santoso', 'Manajer Sub Bidang PLN 1', 'Penandatangan', $icon, 'PLN 1');
         $lina = $pic('Lina Marlina', 'Project Manager', 'Penandatangan Vendor', $tan);
 
-        $bakb = CustomerContract::query()->firstOrCreate(['number' => 'BAKB/2026/011'], ['kind' => 'BAKB', 'title' => 'Layanan Digital Workplace & Kolaborasi Kantor Cabang', 'customer_id' => $ndu->id, 'date' => now()->subMonths(3)]);
-        $bakb2 = CustomerContract::query()->firstOrCreate(['number' => 'MoM/2026/017'], ['kind' => 'MoM Kesepakatan Harga', 'title' => 'MoM Kesepakatan Harga Pengembangan Aplikasi Perbankan', 'customer_id' => $bas->id, 'date' => now()->subMonths(4)]);
+        $bakb = CustomerContract::query()->firstOrCreate(['number' => 'BAKB/2026/011'], ['kind' => 'BAKB', 'revenue' => 2600000000, 'title' => 'Layanan Digital Workplace & Kolaborasi Kantor Cabang', 'customer_id' => $ndu->id, 'date' => now()->subMonths(3)]);
+        $bakb2 = CustomerContract::query()->firstOrCreate(['number' => 'MoM/2026/017'], ['kind' => 'MoM Kesepakatan Harga', 'revenue' => 3100000000, 'title' => 'MoM Kesepakatan Harga Pengembangan Aplikasi Perbankan', 'customer_id' => $bas->id, 'date' => now()->subMonths(4)]);
         $pks = Pks::query()->firstOrCreate(['number' => 'PKS/2025/009'], ['title' => 'Kerja Sama Pengembangan & Pemeliharaan Aplikasi', 'partner_id' => $mip->id, 'date' => now()->subYear(), 'start_date' => now()->subYear(), 'end_date' => now()->addYear(), 'scope' => 'Pengembangan aplikasi custom dan change request.']);
         $lic = BudgetCode::query()->where('code', 'IC02122025')->firstOrFail();
         $pen = BudgetCode::query()->where('code', 'IC00592026')->firstOrFail();
         // Pagu RKAP contoh; PRK penugasan sengaja dibuat terlampaui agar indikator minus terlihat.
-        $lic->update(['budget_amount' => 5000000000, 'year' => 2026]);
-        $pen->update(['budget_amount' => 2000000000, 'year' => 2026]);
+        $lic->update(['budget_amount' => 5000000000, 'year' => 2026, 'sub_bidang' => 'PLN 2']);
+        $pen->update(['budget_amount' => 2000000000, 'year' => 2026, 'sub_bidang' => 'PLN 2']);
 
         $d = fn (int $daysAgo) => now()->subWeekdays($daysAgo)->toDateString();
         // Selesaikan tahap Proses Pengadaan berurutan sampai tahap aktif = $key; tanggal maju satu hari kerja per tahap.
@@ -85,13 +85,13 @@ class DemoSeeder extends Seeder
         };
 
         // 1) SPP Urgent, sedang di Pelaksana Pengadaan (durasi merah)
-        $p1 = $make(['spp_number' => 'SPP/2026/BJB/000041', 'spp_date' => $d(18), 'title' => 'Pengadaan Lisensi Microsoft 365 E3 untuk 1.200 Pengguna', 'method' => 'SPP', 'proc_type' => 'Barang', 'proc_method' => 'Tender Terbatas', 'priority' => 'Urgent', 'sub_bidang' => 'PLN 1', 'pengaju_name' => $dewi->name, 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(16)],
+        $p1 = $make(['spp_number' => 'SPP/2026/BJB/000041', 'spp_date' => $d(18), 'title' => 'Pengadaan Lisensi Microsoft 365 E3 untuk 1.200 Pengguna', 'method' => 'SPP', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Tender Terbatas', 'priority' => 'Urgent', 'sub_bidang' => 'PLN 1', 'pengaju_name' => $dewi->name, 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(16)],
             [$bakb->id], [$sln->id, $gpm->id], $lic, 'LISENSI MICROSOFT 365 E3 SUBSCRIPTION 12 BULAN', 1200, 'User', 1450000);
         $advanceTo($p1, 'lakdan_spv', 15, 3);
         $wf->updateProcess($p1, ['track' => 'pengadaan', 'mode' => 'update', 'activity' => 'Negosiasi', 'date' => $d(2), 'note' => 'Negosiasi harga putaran 1.']);
 
         // 2) SPP dengan SP2K rilis, tahap 1 di Pelaksanaan Pekerjaan
-        $p2 = $make(['spp_number' => 'SPP/2026/BJB/000024', 'spp_date' => $d(45), 'title' => 'Pengembangan Aplikasi Customer Self-Service Portal', 'method' => 'SPP', 'proc_type' => 'Jasa', 'proc_method' => 'Tender Terbuka', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pengaju_name' => $dewi->name, 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(43)],
+        $p2 = $make(['spp_number' => 'SPP/2026/BJB/000024', 'spp_date' => $d(45), 'title' => 'Pengembangan Aplikasi Customer Self-Service Portal', 'method' => 'SPP', 'proc_type' => 'Jasa', 'category' => 'Non Lisensi', 'proc_method' => 'Tender Terbuka', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pengaju_name' => $dewi->name, 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(43)],
             [$bakb2->id], [$tan->id, $gpm->id], $pen, 'JASA PENGEMBANGAN CUSTOMER SELF-SERVICE PORTAL', 1, 'LOT (SERVICE & MATERIAL)', 1450000000);
         $advanceTo($p2, 'lakdan_staff', 42, 31);
         $wf->updateProcess($p2, ['track' => 'pengadaan', 'mode' => 'complete', 'activity' => 'SP2K Rilis', 'date' => $d(30)]);
@@ -112,7 +112,7 @@ class DemoSeeder extends Seeder
         $round->signatories()->create(['pic_id' => $lina->id, 'sent_at' => $d(2), 'status' => 'Proses TTD']);
 
         // 3) Kemitraan di Anggaran
-        $p3 = $make(['spp_number' => 'PGJ/2026/BJB/000033', 'spp_date' => $d(8), 'title' => 'Change Request Aplikasi ERP — Modul e-Approval Pengadaan', 'method' => 'Kemitraan', 'proc_type' => 'Jasa', 'priority' => 'Normal', 'sub_bidang' => 'PLN 2', 'pengaju_name' => $bagus->name, 'pic_pengaju_id' => $bagus->id, 'registered_at' => $d(6), 'pks_id' => $pks->id, 'bak_number' => 'BAK/2026/031', 'bak_date' => $d(7)],
+        $p3 = $make(['spp_number' => 'PGJ/2026/BJB/000033', 'spp_date' => $d(8), 'title' => 'Change Request Aplikasi ERP — Modul e-Approval Pengadaan', 'method' => 'Kemitraan', 'proc_type' => 'Jasa', 'category' => 'Non Lisensi', 'priority' => 'Normal', 'sub_bidang' => 'PLN 2', 'pengaju_name' => $bagus->name, 'pic_pengaju_id' => $bagus->id, 'registered_at' => $d(6), 'pks_id' => $pks->id, 'bak_number' => 'BAK/2026/031', 'bak_date' => $d(7)],
             [$bakb2->id], [$mip->id], $pen, 'CHANGE REQUEST CR-031 MODUL E-APPROVAL PENGADAAN', 1, 'LOT (SERVICE & MATERIAL)', 860000000);
         $advanceTo($p3, 'anggaran_mgr', 5, 3);
     }

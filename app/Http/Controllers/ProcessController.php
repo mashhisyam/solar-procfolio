@@ -18,7 +18,7 @@ class ProcessController extends Controller
         $d = $request->validate([
             'track' => ['required', Rule::in(['pengadaan', 'pasca'])],
             'term_id' => ['required_if:track,pasca', 'nullable', Rule::exists('payment_terms', 'id')->where('procurement_id', $procurement->id)],
-            'mode' => ['required', Rule::in(['update', 'complete', 'return', 'move', 'skip'])],
+            'mode' => ['required', Rule::in(['update', 'complete', 'return', 'move', 'skip', 'rev_minor', 'rev_major'])],
             'activity' => ['nullable', 'string', 'max:255'],
             'pic_id' => ['nullable', 'exists:pics,id'],
             'entered_at' => ['nullable', 'date'],
@@ -35,6 +35,9 @@ class ProcessController extends Controller
             'invoice_number' => ['nullable', 'string', 'max:120'],
             'invoice_date' => ['nullable', 'date'],
             'invoice_amount' => ['nullable', 'numeric', 'gt:0'],
+            // Kode bucket invoicing (opsional)
+            'bucket_code' => ['nullable', 'string', 'max:60'],
+            'bucket_link' => ['nullable', 'string', 'max:1000'],
         ]);
         $res = $this->workflow->updateProcess($procurement, $d);
 
