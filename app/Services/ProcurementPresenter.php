@@ -88,7 +88,7 @@ class ProcurementPresenter
 
                 return [
                     'id' => $t->id, 'seq' => $t->seq, 'name' => $t->name, 'kind' => $t->kind, 'percent' => $t->percent !== null ? (float) $t->percent : null,
-                    'amount' => (float) $t->amount, 'planned_end' => Cal::iso($t->planned_end), 'paid_at' => Cal::iso($t->paid_at), 'bucket_code' => $t->bucket_code, 'bucket_link' => $t->bucket_link, 'plan' => $f['plan'],
+                    'amount' => (float) $t->amount, 'planned_end' => Cal::iso($t->planned_end), 'paid_at' => Cal::iso($t->paid_at), 'bucket_code' => $t->bucket_code, 'bucket_number' => $t->bucket_number, 'bucket_link' => $t->bucket_link, 'plan' => $f['plan'],
                     'scheduled' => $f['scheduled'], 'late_days' => $late,
                     'current' => $f['cur'] ? $this->visit($f['cur'], $i) : null,
                     'nodes' => $i->stepper($p, Track::Pasca, $t->id),
@@ -197,8 +197,8 @@ class ProcurementPresenter
             if ($inv = $t->invoice) {
                 $add('Invoice', 'Invoice', $inv->number, $inv->date, null, "Tahap {$t->seq} · {$inv->status}");
             }
-            if ($t->bucket_code || $t->bucket_link) {
-                $add('Invoice', 'Bucket invoicing', $t->bucket_code, null, $t->bucket_link, "Tahap {$t->seq}");
+            if ($t->bucket_code || $t->bucket_number || $t->bucket_link) {
+                $add('Invoice', 'Bucket invoicing', $t->bucket_number ?: $t->bucket_code, null, $t->bucket_link, trim("Tahap {$t->seq}".($t->bucket_code ? " · kode {$t->bucket_code}" : '')));
             }
         }
 

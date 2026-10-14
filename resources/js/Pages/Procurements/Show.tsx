@@ -296,7 +296,7 @@ function TermDetail({ code, t, bas, can, onUpdate, onGr, onInv }: { code: string
             {can && <><Button size="sm" variant="ghost" onClick={onGr}>{t.gr ? `GR: ${t.gr.status}` : 'Catat GR'}</Button><Button size="sm" variant="ghost" onClick={onInv}>{t.invoice ? `Invoice: ${t.invoice.status}` : 'Catat invoice'}</Button></>}
           </div>
           <div className="px-5 py-5"><Stepper nodes={t.nodes} /></div>
-          {(t.bucket_code || t.bucket_link) && <div className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3 text-[13px]"><span className="text-mute">Bucket invoicing</span><b className="num">{t.bucket_code || '–'}</b><LinkButton url={t.bucket_link} label="Buka" /></div>}
+          {(t.bucket_code || t.bucket_number || t.bucket_link) && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-5 py-3 text-[13px]"><span className="text-mute">Bucket invoicing</span><span>Nomor <b className="num">{t.bucket_number || '–'}</b></span><span>Kode <b className="num">{t.bucket_code || '–'}</b></span><LinkButton url={t.bucket_link} label="Buka" /></div>}
           <TermBaList code={code} t={t} bas={bas} can={can} />
           <History visits={t.history} />
         </div>

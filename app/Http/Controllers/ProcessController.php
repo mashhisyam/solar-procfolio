@@ -37,6 +37,7 @@ class ProcessController extends Controller
             'invoice_amount' => ['nullable', 'numeric', 'gt:0'],
             // Kode bucket invoicing (opsional)
             'bucket_code' => ['nullable', 'string', 'max:60'],
+            'bucket_number' => ['nullable', 'string', 'max:60'],
             'bucket_link' => ['nullable', 'string', 'max:1000'],
         ]);
         $res = $this->workflow->updateProcess($procurement, $d);

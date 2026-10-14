@@ -32,7 +32,7 @@ export interface Pic { id: number; name: string; role: string | null; title?: st
 export interface Option { id: number; name: string }
 
 export interface Term {
-  id: number; seq: number; name: string; kind: string; percent: number | null; amount: number; planned_end: string | null; paid_at: string | null; bucket_code: string | null; bucket_link: string | null;
+  id: number; seq: number; name: string; kind: string; percent: number | null; amount: number; planned_end: string | null; paid_at: string | null; bucket_code: string | null; bucket_number: string | null; bucket_link: string | null;
   plan: { start: string; end: string | null; days: number | null } | null; scheduled: boolean; late_days: number;
   current: CurrentVisit | null; nodes: StepNode[]; history: HistoryVisit[]; ba_ids: number[]; ba_ready: boolean;
   gr: { id: number; status: string; number: string | null; gr_type: string | null; amount: number | null; submitted_at: string | null; gr_date: string | null; source_app: string | null; pic_id: number | null; pic: string | null; link: string | null; note: string | null; ba_ids: number[] } | null;

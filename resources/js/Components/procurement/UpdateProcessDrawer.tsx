@@ -40,13 +40,13 @@ export default function UpdateProcessDrawer({ open, onClose, code, track, term, 
   const earlier = idx > 0 ? list.slice(0, idx) : [];
   const later = idx >= 0 ? list.slice(idx + 1) : [];
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [f, setF] = useState({ activity: '', pic_id: null as number | null, date: app.today, note: '', target: '', target_pic_id: null as number | null, gr_number: '', gr_type: '', gr_amount: 0, gr_link: '', invoice_number: '', invoice_date: app.today, invoice_amount: 0, bucket_code: '', bucket_link: '' });
+  const [f, setF] = useState({ activity: '', pic_id: null as number | null, date: app.today, note: '', target: '', target_pic_id: null as number | null, gr_number: '', gr_type: '', gr_amount: 0, gr_link: '', invoice_number: '', invoice_date: app.today, invoice_amount: 0, bucket_code: '', bucket_number: '', bucket_link: '' });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!open || !v) return;
     setMode(initialMode);
     const t = initialMode === 'return' ? earlier[earlier.length - 1] : initialMode === 'move' ? later[0] : next;
-    setF({ activity: v.stage_key === 'pelaksanaan' ? '' : v.activity || 'Review Dokumen', pic_id: v.pic_id, date: app.today, note: '', target: t?.key || '', target_pic_id: t?.pic_id ?? null, gr_number: term?.gr?.number || '', gr_type: term?.gr?.gr_type || '', gr_amount: term?.gr?.amount || term?.amount || 0, gr_link: term?.gr?.link || '', invoice_number: term?.invoice?.number || '', invoice_date: term?.invoice?.date || app.today, invoice_amount: term?.invoice?.amount || term?.amount || 0, bucket_code: term?.bucket_code || '', bucket_link: term?.bucket_link || '' });
+    setF({ activity: v.stage_key === 'pelaksanaan' ? '' : v.activity || 'Review Dokumen', pic_id: v.pic_id, date: app.today, note: '', target: t?.key || '', target_pic_id: t?.pic_id ?? null, gr_number: term?.gr?.number || '', gr_type: term?.gr?.gr_type || '', gr_amount: term?.gr?.amount || term?.amount || 0, gr_link: term?.gr?.link || '', invoice_number: term?.invoice?.number || '', invoice_date: term?.invoice?.date || app.today, invoice_amount: term?.invoice?.amount || term?.amount || 0, bucket_code: term?.bucket_code || '', bucket_number: term?.bucket_number || '', bucket_link: term?.bucket_link || '' });
   }, [open, v?.id, initialMode]); // eslint-disable-line react-hooks/exhaustive-deps
   const targets = mode === 'return' ? earlier : mode === 'move' ? later : [];
   useEffect(() => { if (targets.length && !targets.some((t) => t.key === f.target)) setF((x) => ({ ...x, target: mode === 'return' ? targets[targets.length - 1].key : targets[0].key })); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -69,7 +69,7 @@ export default function UpdateProcessDrawer({ open, onClose, code, track, term, 
     setBusy(true);
     const extra = track === 'pasca' && mode === 'complete' && v.stage_key === 'gr' ? { gr_number: f.gr_number, gr_type: f.gr_type, gr_amount: f.gr_amount, gr_link: f.gr_link }
       : track === 'pasca' && mode === 'complete' && v.stage_key === 'invoice' && f.invoice_number.trim() ? { invoice_number: f.invoice_number, invoice_date: f.invoice_date, invoice_amount: f.invoice_amount } : {};
-    const bucket = track === 'pasca' && v.stage_key === 'invoice' && (mode === 'update' || mode === 'complete') ? { bucket_code: f.bucket_code || null, bucket_link: f.bucket_link || null } : {};
+    const bucket = track === 'pasca' && v.stage_key === 'invoice' && (mode === 'update' || mode === 'complete') ? { bucket_code: f.bucket_code || null, bucket_number: f.bucket_number || null, bucket_link: f.bucket_link || null } : {};
     router.post(`/pengadaan/${code}/proses`, { track, term_id: term?.id ?? null, mode, activity: f.activity, pic_id: f.pic_id, date: f.date, note: f.note, target_pic_id: f.target_pic_id, target: targetDef?.key ?? f.target, ...extra, ...bucket }, {
       preserveScroll: true, onSuccess: () => onClose(), onFinish: () => setBusy(false),
     });
@@ -117,8 +117,9 @@ export default function UpdateProcessDrawer({ open, onClose, code, track, term, 
         {track === 'pasca' && v.stage_key === 'invoice' && (mode === 'update' || mode === 'complete') && (
           <div className="grid grid-cols-1 gap-3 rounded-xl border border-line p-4 sm:col-span-2 sm:grid-cols-2">
             <p className="text-[13.5px] font-bold sm:col-span-2">Bucket invoicing <span className="font-normal text-mute">(opsional)</span></p>
+            <Field label="Nomor bucket"><Input value={f.bucket_number} onChange={(e) => set('bucket_number', e.target.value)} placeholder="CONTOH: 5100027781" /></Field>
             <Field label="Kode bucket"><Input value={f.bucket_code} onChange={(e) => set('bucket_code', e.target.value)} /></Field>
-            <Field label="Tautan bucket"><LinkField value={f.bucket_link} onChange={(x) => set('bucket_link', x)} /></Field>
+            <Field label="Tautan bucket" className="sm:col-span-2"><LinkField value={f.bucket_link} onChange={(x) => set('bucket_link', x)} /></Field>
           </div>
         )}
         {track === 'pasca' && v.stage_key === 'invoice' && mode === 'complete' && (

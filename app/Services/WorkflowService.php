@@ -314,10 +314,10 @@ class WorkflowService
             }
             $v->save();
 
-            if ($term && $v->stage_key === 'invoice' && (array_key_exists('bucket_code', $d) || array_key_exists('bucket_link', $d))) {
-                $bucket = ['bucket_code' => $d['bucket_code'] ?? null, 'bucket_link' => $d['bucket_link'] ?? null];
-                if ($bucket['bucket_code'] !== $term->bucket_code || $bucket['bucket_link'] !== $term->bucket_link) {
-                    $this->audit->log($p->id, 'Tahap Pembayaran', $term->id, 'Kode bucket invoicing', "Bucket Tahap {$term->seq}", $term->bucket_code, $bucket['bucket_code']);
+            if ($term && $v->stage_key === 'invoice' && (array_key_exists('bucket_code', $d) || array_key_exists('bucket_number', $d) || array_key_exists('bucket_link', $d))) {
+                $bucket = ['bucket_code' => $d['bucket_code'] ?? null, 'bucket_number' => $d['bucket_number'] ?? null, 'bucket_link' => $d['bucket_link'] ?? null];
+                if ($bucket['bucket_code'] !== $term->bucket_code || $bucket['bucket_number'] !== $term->bucket_number || $bucket['bucket_link'] !== $term->bucket_link) {
+                    $this->audit->log($p->id, 'Tahap Pembayaran', $term->id, 'Bucket invoicing', "Bucket Tahap {$term->seq}", trim(($term->bucket_code ?? '').' '.($term->bucket_number ?? '')) ?: null, trim(($bucket['bucket_code'] ?? '').' '.($bucket['bucket_number'] ?? '')) ?: null);
                     $term->update($bucket);
                 }
             }
