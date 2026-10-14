@@ -8,6 +8,7 @@ use App\Models\BeritaAcara;
 use App\Models\Company;
 use App\Models\ContractAmendment;
 use App\Models\Document;
+use App\Models\GoodsReceipt;
 use App\Models\Invoice;
 use App\Models\MasterItem;
 use App\Models\Pic;
@@ -156,7 +157,7 @@ class ProcurementPresenter
             'change_types' => ContractAmendment::CHANGE_TYPES,
             'invoice_statuses' => ['Submit Invoice', 'Verifikasi', 'Perlu Revisi', 'Antri Bayar', 'Dibayar'],
             'gr_statuses' => ['Belum Diajukan', 'Diajukan', 'Perlu Revisi', 'GR Terbit'],
-            'gr_types' => \App\Models\GoodsReceipt::TYPES,
+            'gr_types' => GoodsReceipt::TYPES,
             'checklist' => Invoice::CHECKLIST,
             'vendors' => Company::query()->whereIn('type', ['Vendor', 'Mitra'])->where('active', true)->orderBy('name')->get(['id', 'name']),
         ];

@@ -240,7 +240,9 @@ class ProcurementInsight
     {
         $s = $p->priority === 'Urgent' ? 100 : 0;
         foreach ($alerts as $a) {
-            $s += match ($a['code']) { 'dur-bad', 'late' => 60, 'no-update' => 30, 'dur-warn' => 20, default => 10 };
+            $s += match ($a['code']) {
+                'dur-bad', 'late' => 60, 'no-update' => 30, 'dur-warn' => 20, default => 10
+            };
         }
 
         return $s;

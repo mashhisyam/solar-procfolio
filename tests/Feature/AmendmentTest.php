@@ -3,6 +3,7 @@
 use App\Models\BudgetCode;
 use App\Models\Company;
 use App\Models\CustomerContract;
+use App\Models\Pic;
 use App\Models\Procurement;
 use App\Models\User;
 use Database\Seeders\ReferenceSeeder;
@@ -16,7 +17,7 @@ beforeEach(function () {
     $code = BudgetCode::query()->first();
     $this->post('/pengadaan', [
         'draft' => false, 'method' => 'SPP', 'title' => 'Pengadaan Amandemen', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung', 'priority' => 'Normal',
-        'registered_at' => '2026-01-05', 'spp_number' => 'SPP/2026/BJB/000009', 'spp_date' => '2026-01-02', 'pic_pengaju_id' => App\Models\Pic::query()->value('id'),
+        'registered_at' => '2026-01-05', 'spp_number' => 'SPP/2026/BJB/000009', 'spp_date' => '2026-01-02', 'pic_pengaju_id' => Pic::query()->value('id'),
         'candidate_vendor_ids' => [$vendor->id], 'customer_contract_ids' => [$bakb->id], 'budget_code_id' => $code->id,
         'rab_items' => [['description' => 'UJI', 'budget_type' => 'OPEX', 'qty' => 1, 'unit' => 'Paket', 'price' => 5000000]],
         'documents' => [['doc_type' => 'TOR', 'required' => true, 'available' => true], ['doc_type' => 'BCR (Benefit Cost Ratio)', 'required' => true, 'available' => true]],

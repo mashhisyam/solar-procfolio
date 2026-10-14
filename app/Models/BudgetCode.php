@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 
 class BudgetCode extends Model
 {
@@ -18,7 +19,7 @@ class BudgetCode extends Model
      */
     public static function usedAmounts(): array
     {
-        return \Illuminate\Support\Facades\DB::table('budget_code_procurement as bp')
+        return DB::table('budget_code_procurement as bp')
             ->join('procurements as p', 'p.id', '=', 'bp.procurement_id')
             ->where('p.is_draft', false)->whereNull('p.cancelled_at')
             ->groupBy('bp.budget_code_id')

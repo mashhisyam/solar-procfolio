@@ -8,6 +8,7 @@ use App\Support\WorkdayCalendar;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use SocialiteProviders\Azure\Provider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
@@ -24,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('admin', fn (User $u) => $u->active && $u->isAdmin());
 
         Event::listen(function (SocialiteWasCalled $event) {
-            $event->extendSocialite('azure', \SocialiteProviders\Azure\Provider::class);
+            $event->extendSocialite('azure', Provider::class);
         });
     }
 }
