@@ -11,6 +11,7 @@ class StageActivity extends Model
 
     protected $casts = ['date' => 'date'];
 
+    /** @return BelongsTo<Pic, $this> */
     public function pic(): BelongsTo
     {
         return $this->belongsTo(Pic::class);

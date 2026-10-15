@@ -12,7 +12,10 @@ export default function Login({ ssoEnabled, localLogin }: { ssoEnabled: boolean;
     <div className="flex min-h-full items-center justify-center bg-bg px-4 py-10">
       <Head title="Masuk" />
       <div className="w-full max-w-[400px] rounded-2xl border border-line bg-surface p-7 shadow-card">
-        <img src="/images/procfolio-logo.png" alt="Procfolio" className="mb-6 h-12 w-auto" />
+        <div className="mb-6 flex items-center gap-3">
+          <img src="/images/procfolio-icon.png" alt="" className="h-12 w-auto" />
+          <span><span className="grad-text block pb-0.5 text-[28px] font-extrabold leading-none tracking-[-0.015em]">Procfolio</span><span className="mt-1 block text-[11.5px] text-mute">Procurement Portfolio Monitoring</span></span>
+        </div>
         <h1 className="text-[20px] font-extrabold">Masuk ke Procfolio</h1>
         <p className="mt-1 text-[13px] text-mute">Monitoring pengadaan dari approval hingga pembayaran vendor.</p>
         {props.flash.error && <p role="alert" className="mt-4 rounded-lg bg-badsoft px-3 py-2 text-[13px] text-bad">{props.flash.error}</p>}

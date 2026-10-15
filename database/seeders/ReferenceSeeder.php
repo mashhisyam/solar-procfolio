@@ -24,13 +24,13 @@ class ReferenceSeeder extends Seeder
             'activity' => ['Review Dokumen', 'Approval', 'Disposisi', 'Klarifikasi', 'Penyusunan RKS', 'Negosiasi', 'SP2K Rilis', 'PO Rilis',
                 'Pekerjaan Berjalan', 'Penyusunan BA', 'Sirkuler TTD', 'Pengajuan GR', 'Posting GR', 'Penerimaan Invoice', 'Kelengkapan Dokumen',
                 'Verifikasi Dokumen', 'Penjadwalan Pembayaran', 'Pembuatan BA', 'Sirkuler BA', 'Revisi BA', 'BA Fully Sign', 'Lainnya'],
-            'doc_type' => ['TOR', 'BCR (Benefit Cost Ratio)', 'BAK', 'SPH', 'Form Justifikasi Anggaran', 'BAKB', 'Surat Penugasan', 'RKS', 'Lainnya'],
+            'doc_type' => ['TOR (Term of Reference)', 'BCR (Benefit Cost Ratio)', 'SPH (Surat Permohonan Harga)', 'KKF (Kajian Kelayakan Finansial)', 'KKP (Kajian Kelayakan Proyek)', 'BAK', 'Dokumen Lainnya'],
             'ba_type' => ['BAST', 'BAPS', 'BAUK', 'BA Rekon'],
             'contract_type' => ['SP2K', 'PO', 'Kontrak'],
             'change_part' => ['Ruang Lingkup', 'Masa Berlaku', 'Ketentuan Komersial', 'Para Pihak', 'Lainnya'],
             'rab_unit' => ['LOT (SERVICE & MATERIAL)', 'User', 'Lisensi', 'Core', 'Endpoint', 'Unit', 'Bulan', 'Paket'],
         ];
-        $locked = ['activity' => ['SP2K Rilis', 'PO Rilis'], 'doc_type' => ['TOR', 'BCR (Benefit Cost Ratio)', 'BAK', 'Surat Penugasan'], 'contract_type' => ['SP2K', 'PO']];
+        $locked = ['activity' => ['SP2K Rilis', 'PO Rilis'], 'doc_type' => ['TOR (Term of Reference)', 'BCR (Benefit Cost Ratio)', 'BAK'], 'contract_type' => ['SP2K', 'PO']];
         foreach ($lists as $group => $labels) {
             foreach ($labels as $i => $label) {
                 MasterItem::query()->updateOrCreate(['group' => $group, 'label' => $label], ['sort' => $i, 'active' => true, 'locked' => in_array($label, $locked[$group] ?? [], true)]);
@@ -45,6 +45,10 @@ class ReferenceSeeder extends Seeder
             ['pengaju_vp', 'L1/VP Pengaju', 'Pengaju', false, true, $review],
             ['pengaju_dir', 'Direktur Pengaju', 'Pengaju', true, false, $review],
         ];
+        $sales = [
+            ['sales_mgr', 'Manager Sales', 'Sales', false, true, $review],
+            ['sales_vp', 'L1/VP Sales', 'Sales', false, true, $review],
+        ];
         $anggaran = [
             ['anggaran_staff', 'Staff Anggaran', 'Anggaran', false, true, $review],
             ['anggaran_mgr', 'Manager Anggaran', 'Anggaran', false, true, $review],
@@ -55,14 +59,14 @@ class ReferenceSeeder extends Seeder
             // Setelah Anggaran, semua pengadaan masuk ke Manager Pengadaan. Selanjutnya (default menurut metode, lihat WorkflowService::applyRouting):
             // Pengadaan Langsung: Manager Pengadaan -> SPV Lakdan -> Staff Lakdan
             // Metode lain:        Manager Pengadaan -> SPV Rendan -> Staff Rendan -> SPV Lakdan -> Staff Lakdan
-            'SPP' => [...$pengaju, ...$anggaran,
+            'SPP Pusat' => [...$pengaju, ...$sales, ...$anggaran,
                 ['pengadaan_mgr', 'Manager Pengadaan', 'Manager Pengadaan', false, true, ['Review Dokumen', 'Disposisi', 'Klarifikasi']],
                 ['rendan_spv', 'SPV Rendan', 'Perencana Pengadaan', false, true, ['Review Dokumen', 'Penyusunan RKS', 'Klarifikasi']],
                 ['rendan_staff', 'Staff Rendan', 'Perencana Pengadaan', false, true, ['Penyusunan RKS', 'Klarifikasi']],
                 ['lakdan_spv', 'SPV Lakdan', 'Pelaksana Pengadaan', false, true, ['Review Dokumen', 'Klarifikasi', 'Negosiasi']],
                 ['lakdan_staff', 'Staff Lakdan', 'Pelaksana Pengadaan', false, true, ['Klarifikasi', 'Negosiasi', 'SP2K Rilis']],
             ],
-            'Kemitraan' => [...$pengaju, ...$anggaran,
+            'SPP Kemitraan' => [...$pengaju, ...$sales, ...$anggaran,
                 ['partnership', 'Partnership', 'Partnership', false, true, ['Review Dokumen', 'Klarifikasi', 'Negosiasi', 'PO Rilis']],
             ],
             'Pasca' => [
@@ -108,8 +112,10 @@ class ReferenceSeeder extends Seeder
             ['5211990003', 'IC00592026', 'SUPPORT KEBUTUHAN PENUGASAN PLN', 'PRODUKSI LANGSUNG'],
         ];
         foreach ($codes as [$coa, $code, $program, $klas]) {
-            BudgetCode::query()->updateOrCreate(['code' => $code], ['coa' => $coa, 'cost_center' => $cc, 'program' => $program, 'klasifikasi' => $klas, 'active' => true]);
+            BudgetCode::query()->updateOrCreate(['code' => $code], ['coa' => $coa, 'cost_center' => $cc, 'sub_bidang' => PrkSeeder::subBidangOf($cc), 'program' => $program, 'klasifikasi' => $klas, 'active' => true]);
         }
+        // Daftar PRK lengkap dari berkas database/data/prk.csv (bila ada).
+        $this->call(PrkSeeder::class);
 
         $icon = Company::query()->firstOrCreate(['name' => 'PT Indonesia Comnets Plus'], ['type' => 'Internal', 'active' => true]);
         $admin = Pic::query()->firstOrCreate(['email' => 'admin@procfolio.local'], ['name' => 'Admin Procfolio', 'title' => 'Administrator', 'company_id' => $icon->id, 'role' => 'Solution Architect', 'active' => true]);

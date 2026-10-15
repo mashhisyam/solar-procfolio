@@ -13,8 +13,9 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * RKAP: monitoring pagu PRK (dulu Kode Anggaran).
- * Terpakai = total RAB pengadaan aktif yang memakai PRK tersebut. Sisa boleh minus; hanya diinformasikan.
+ * RKAP: monitoring penetapan PRK per sub bidang.
+ * Nilai Pengajuan = anggaran yang ditetapkan untuk PRK. Nilai Digunakan = total RAB pengadaan aktif yang memakainya.
+ * Sisa Anggaran boleh minus; hanya diinformasikan dan tidak menahan pengadaan.
  */
 class RkapController extends Controller
 {
@@ -23,7 +24,7 @@ class RkapController extends Controller
     public function index(ProcurementInsight $insight): Response
     {
         $used = BudgetCode::usedAmounts();
-        $procs = Procurement::query()->with(['budgetCodes:id', 'contract.amendments', 'visits', 'terms', 'documents', 'customerContracts'])
+        $procs = Procurement::query()->with(['budgetCodes:id', 'contract.amendments', 'workContract.amendments', 'visits', 'terms', 'documents', 'customerContracts'])
             ->where('is_draft', false)->whereNull('cancelled_at')->get();
         $byCode = [];
         foreach ($procs as $p) {
@@ -75,10 +76,10 @@ class RkapController extends Controller
             'budget_amount' => ['required', 'numeric', 'min:0'],
             'year' => ['nullable', 'integer', 'min:2020', 'max:2100'],
             'active' => ['boolean'],
-        ], [], ['code' => 'PRK', 'budget_amount' => 'pagu anggaran']);
+        ], [], ['code' => 'PRK', 'budget_amount' => 'nilai pengajuan']);
         $d = [...$d, 'code' => strtoupper(trim($d['code'])), 'program' => mb_strtoupper(trim($d['program'])), 'klasifikasi' => mb_strtoupper(trim($d['klasifikasi']))];
         if ($budgetCode && (float) $budgetCode->budget_amount !== (float) $d['budget_amount']) {
-            $this->audit->log(null, 'RKAP', $budgetCode->code, 'Ubah pagu PRK', 'Pagu',
+            $this->audit->log(null, 'RKAP', $budgetCode->code, 'Ubah nilai pengajuan PRK', 'Nilai pengajuan',
                 'Rp'.number_format((float) $budgetCode->budget_amount, 0, ',', '.'), 'Rp'.number_format((float) $d['budget_amount'], 0, ',', '.'));
         }
         $budgetCode ? $budgetCode->update($d) : BudgetCode::query()->create($d);

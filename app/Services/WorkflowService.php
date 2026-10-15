@@ -205,6 +205,45 @@ class WorkflowService
         }
     }
 
+    /** Kelompok tahap milik unit pengadaan. Pengadaan yang berhenti setelah masuk ke sini berstatus Gagal. */
+    public const PROCUREMENT_GROUPS = ['Manager Pengadaan', 'Perencana Pengadaan', 'Pelaksana Pengadaan', 'Partnership'];
+
+    /**
+     * Jenis penghentian yang berlaku saat ini: 'gagal' bila Proses Pengadaan pernah masuk unit pengadaan
+     * (Manager Pengadaan, Rendan, Lakdan, Partnership), selain itu 'batal' (masih di Pengaju, Sales atau Anggaran).
+     * Null bila tidak dapat dihentikan: sudah berhenti, atau SP2K/PO sudah rilis.
+     */
+    public static function stopTypeFor(Procurement $p): ?string
+    {
+        if ($p->cancelled_at || $p->contract()->exists()) {
+            return null;
+        }
+        $keys = collect($p->workflow ?? [])->filter(fn ($s) => in_array(self::groupOf($s), self::PROCUREMENT_GROUPS, true))->pluck('key')->all();
+        $entered = $keys && StageVisit::query()->where('procurement_id', $p->id)->where('track', Track::Pengadaan->value)
+            ->whereNull('amendment_id')->whereIn('stage_key', $keys)->exists();
+
+        return $entered ? 'gagal' : 'batal';
+    }
+
+    /**
+     * Hentikan pengadaan sebagai Dibatalkan atau Gagal (ditentukan sistem). Data tetap disimpan; tidak ada penghapusan.
+     * Tahap yang sedang berjalan dibiarkan apa adanya agar dapat diaktifkan kembali.
+     */
+    public function stop(Procurement $p, string $reason, ?string $date = null): string
+    {
+        $type = self::stopTypeFor($p);
+        if ($type === null) {
+            throw ValidationException::withMessages(['reason' => $p->cancelled_at
+                ? 'Pengadaan sudah dihentikan.'
+                : 'SP2K/PO sudah rilis; pengadaan tidak dapat dibatalkan atau dinyatakan gagal.']);
+        }
+        $label = $type === 'gagal' ? 'Gagal' : 'Dibatalkan';
+        $p->update(['cancelled_at' => $date ?? now(), 'cancel_type' => $type, 'cancel_reason' => trim($reason)]);
+        $this->audit->log($p->id, 'Pengadaan', $p->code, $type === 'gagal' ? 'Pengadaan gagal' : 'Batalkan pengadaan', 'Status', null, $label, $reason);
+
+        return $type;
+    }
+
     /** Registrasi selesai: tahap aktif pertama dimulai pada tanggal registrasi. */
     public function register(Procurement $p): void
     {
@@ -356,7 +395,7 @@ class WorkflowService
                         $this->audit->log($p->id, 'Invoice', $inv->id, 'Catat invoice', "Invoice Tahap {$term->seq}", null, $inv->number);
                     }
                     $this->closeVisit($v, $date, VisitStatus::Done, $activity);
-                    $finalLabel = $track === Track::Pasca ? 'Dibayar' : ($amendmentId ? 'Amandemen Rilis' : ($p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis'));
+                    $finalLabel = $track === Track::Pasca ? 'Dibayar' : ($amendmentId ? 'Amandemen Rilis' : ($p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis'));
                     $this->audit->log($p->id, 'Tahap', $v->id, 'Selesaikan tahap', $subject, $v->stage_name, $next['name'] ?? $finalLabel, $note ?: null);
                     if ($next) {
                         $this->markSkipped($p, $track, $v->stage_key, $next['key'], $date, '', $termId, $amendmentId);
@@ -373,7 +412,7 @@ class WorkflowService
                         $msg = 'Tahap amandemen selesai. Catat nomor dan isi amandemen.';
                         $after = 'amendment-release';
                     } else {
-                        $msg = "{$v->stage_name} selesai. Lanjutkan rilis ".($p->method === 'SPP' ? 'SP2K' : 'PO').' beserta tahapan pembayaran.';
+                        $msg = "{$v->stage_name} selesai. Lanjutkan rilis ".($p->method === 'SPP Pusat' ? 'SP2K' : 'PO').' beserta tahapan pembayaran.';
                         $after = 'contract';
                     }
                     break;
@@ -543,7 +582,7 @@ class WorkflowService
             $terms = collect($d['terms'])->values();
             $lastEnd = $terms->pluck('planned_end')->sort()->last();
             $vc = VendorContract::query()->create([
-                'procurement_id' => $p->id, 'kind' => $d['kind'], 'number' => trim($d['number']), 'title' => $d['title'],
+                'procurement_id' => $p->id, 'is_primary' => true, 'kind' => $d['kind'], 'number' => trim($d['number']), 'title' => $d['title'],
                 'vendor_id' => $d['vendor_id'], 'date' => $d['date'], 'kickoff_date' => $d['kickoff_date'], 'end_date' => $lastEnd,
                 'value_excl' => $d['value_excl'], 'value_incl' => $d['value_incl'], 'scope' => $d['scope'] ?? null, 'link' => $d['link'] ?? null,
             ]);
@@ -554,7 +593,7 @@ class WorkflowService
                 ->whereNull('amendment_id')->where('status', VisitStatus::Running->value)->latest('id')->first();
             if ($running && ($d['close_stage'] ?? true)) {
                 $closeDate = $d['date'] >= Cal::iso($running->entered_at) ? $d['date'] : Cal::today();
-                $this->closeVisit($running, $closeDate, VisitStatus::Done, $p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis');
+                $this->closeVisit($running, $closeDate, VisitStatus::Done, $p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis');
             }
 
             foreach ($terms as $i => $t) {
@@ -574,6 +613,36 @@ class WorkflowService
     }
 
     /**
+     * Catat Kontrak Pengadaan di samping SP2K/PO. Vendor mengikuti pemenang; tidak membentuk tahapan pembayaran
+     * dan tidak mengubah Cost (tetap dari SP2K/PO). Perubahan berikutnya lewat koreksi data atau amandemen.
+     *
+     * @param  array<string, mixed>  $d
+     */
+    public function saveWorkContract(Procurement $p, array $d): VendorContract
+    {
+        return DB::transaction(function () use ($p, $d) {
+            $main = $p->contract()->first();
+            if (! $main) {
+                throw ValidationException::withMessages(['number' => 'Kontrak Pengadaan dicatat setelah SP2K/PO rilis.']);
+            }
+            if ($p->workContract()->exists()) {
+                throw ValidationException::withMessages(['number' => 'Pengadaan ini sudah memiliki Kontrak Pengadaan. Gunakan koreksi data atau amandemen.']);
+            }
+            $vc = VendorContract::query()->create([
+                'procurement_id' => $p->id, 'is_primary' => false, 'kind' => VendorContract::WORK_KIND, 'number' => trim($d['number']),
+                'title' => $d['title'], 'vendor_id' => $main->vendor_id, 'date' => $d['date'], 'kickoff_date' => $d['kickoff_date'],
+                'end_date' => $d['end_date'] ?? null, 'value_excl' => $d['value_excl'], 'value_incl' => $d['value_incl'],
+                'scope' => $d['scope'] ?? null, 'link' => $d['link'] ?? null,
+            ]);
+            $this->audit->log($p->id, 'Kontrak Vendor', $vc->id, 'Kontrak Pengadaan dicatat', null, null,
+                "{$vc->number} · nilai ".number_format((float) $vc->value_incl, 0, ',', '.'));
+            $p->touch();
+
+            return $vc;
+        });
+    }
+
+    /**
      * Ajukan amandemen: Progres 1 dibuka kembali khusus untuk alur amandemen.
      *
      * @param  array<string, mixed>  $d
@@ -581,8 +650,14 @@ class WorkflowService
     public function startAmendment(Procurement $p, array $d): ContractAmendment
     {
         return DB::transaction(function () use ($p, $d) {
-            $vc = $p->contract()->firstOrFail();
-            if ($vc->amendments()->where('status', AmendmentStatus::Running->value)->exists()) {
+            // Amandemen dapat diajukan untuk SP2K/PO maupun Kontrak Pengadaan; bawaan SP2K/PO.
+            $vc = ! empty($d['contract_id'])
+                ? VendorContract::query()->where('procurement_id', $p->id)->findOrFail($d['contract_id'])
+                : $p->contract()->firstOrFail();
+            // Hanya satu amandemen berjalan per pengadaan karena keduanya memakai alur Proses Pengadaan yang sama.
+            $running = ContractAmendment::query()->where('status', AmendmentStatus::Running->value)
+                ->whereIn('vendor_contract_id', VendorContract::query()->where('procurement_id', $p->id)->select('id'))->exists();
+            if ($running) {
                 throw ValidationException::withMessages(['reason' => 'Masih ada amandemen yang sedang berjalan.']);
             }
             $order = array_column($p->workflow, 'key');

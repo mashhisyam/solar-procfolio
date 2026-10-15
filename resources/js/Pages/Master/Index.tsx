@@ -4,6 +4,7 @@ import { Plus, Save, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button, Card, CardHead, Field, Input, Modal, Select, Switch, TableWrap, Tabs, cx, td, th } from '@/Components/ui';
 import { PageHeader } from '@/Components/common';
 import { fmtDate } from '@/lib/format';
+import { Pager, usePaged } from '@/Components/Pagination';
 
 type Company = { id: number; name: string; type: string; active: boolean };
 type PicRow = { id: number; name: string; title: string | null; company_id: number | null; company?: { id: number; name: string } | null; role: string | null; sub_bidang: string | null; email: string | null; phone: string | null; active: boolean };
@@ -33,12 +34,13 @@ export default function MasterIndex(props: Props) {
 
 function Org({ companies, pics }: Props) {
   const [c, setC] = useState<Partial<Company> | null>(null); const [p, setP] = useState<Partial<PicRow> | null>(null);
+  const cPg = usePaged(companies, '', 10); const pPg = usePaged(pics, '', 10);
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       <Card><CardHead title={`Perusahaan (${companies.length})`} actions={<Button size="sm" icon={Plus} onClick={() => setC({ name: '', type: 'Vendor', active: true })}>Tambah</Button>} />
-        <TableWrap><thead><tr>{['Nama', 'Tipe', 'Aktif', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead><tbody>{companies.map((x) => <tr key={x.id} className={cx(!x.active && 'opacity-60')}><td className={td}>{x.name}</td><td className={td}>{x.type}</td><td className={td}>{x.active ? 'Ya' : 'Tidak'}</td><td className={td}><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setC(x)}>Ubah</Button></td></tr>)}</tbody></TableWrap></Card>
+        <TableWrap><thead><tr>{['Nama', 'Tipe', 'Aktif', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead><tbody>{cPg.view.map((x) => <tr key={x.id} className={cx(!x.active && 'opacity-60')}><td className={td}>{x.name}</td><td className={td}>{x.type}</td><td className={td}>{x.active ? 'Ya' : 'Tidak'}</td><td className={td}><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setC(x)}>Ubah</Button></td></tr>)}</tbody></TableWrap><Pager p={cPg} label="perusahaan" /></Card>
       <Card><CardHead title={`PIC (${pics.length})`} actions={<Button size="sm" icon={Plus} onClick={() => setP({ name: '', active: true })}>Tambah</Button>} />
-        <TableWrap><thead><tr>{['Nama', 'Jabatan', 'Peran', 'Perusahaan', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead><tbody>{pics.map((x) => <tr key={x.id} className={cx(!x.active && 'opacity-60')}><td className={td}>{x.name}</td><td className={td}>{x.title}</td><td className={td}>{x.role}</td><td className={td}>{x.company?.name}</td><td className={td}><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setP(x)}>Ubah</Button></td></tr>)}</tbody></TableWrap></Card>
+        <TableWrap><thead><tr>{['Nama', 'Jabatan', 'Peran', 'Perusahaan', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead><tbody>{pPg.view.map((x) => <tr key={x.id} className={cx(!x.active && 'opacity-60')}><td className={td}>{x.name}</td><td className={td}>{x.title}</td><td className={td}>{x.role}</td><td className={td}>{x.company?.name}</td><td className={td}><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setP(x)}>Ubah</Button></td></tr>)}</tbody></TableWrap><Pager p={pPg} label="PIC" /></Card>
       <Modal open={!!c} onClose={() => setC(null)} title={c?.id ? 'Ubah perusahaan' : 'Tambah perusahaan'} footer={<><Button onClick={() => setC(null)}>Batal</Button><Button variant="primary" icon={Save} onClick={() => post(`/master/perusahaan${c?.id ? `/${c.id}` : ''}`, c!, () => setC(null))}>Simpan</Button></>}>
         {c && <div className="space-y-4"><Field label="Nama" required><Input value={c.name || ''} onChange={(e) => setC({ ...c, name: e.target.value })} /></Field><Field label="Tipe" required><Select value={c.type} onChange={(e) => setC({ ...c, type: e.target.value })}>{['Internal', 'Pelanggan', 'Mitra', 'Vendor'].map((t) => <option key={t}>{t}</option>)}</Select></Field><Switch checked={!!c.active} onChange={(v) => setC({ ...c, active: v })} label="Aktif" /></div>}
       </Modal>
@@ -46,7 +48,7 @@ function Org({ companies, pics }: Props) {
         {p && <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Nama" required><Input value={p.name || ''} onChange={(e) => setP({ ...p, name: e.target.value })} /></Field>
           <Field label="Jabatan"><Input value={p.title || ''} onChange={(e) => setP({ ...p, title: e.target.value })} /></Field>
-          <Field label="Peran"><Input noCaps list="roles" value={p.role || ''} onChange={(e) => setP({ ...p, role: e.target.value })} /><datalist id="roles">{['User Pengaju', 'Manager Pengaju', 'L1/VP Pengaju', 'Direktur Pengaju', 'Staff Anggaran', 'Manager Anggaran', 'L1/VP Anggaran', 'Direktur Anggaran', 'Manager Pengadaan', 'SPV Rendan', 'Staff Rendan', 'SPV Lakdan', 'Staff Lakdan', 'Partnership', 'Finance', 'Penandatangan', 'Penandatangan Vendor', 'Penandatangan Mitra'].map((r) => <option key={r} value={r} />)}</datalist></Field>
+          <Field label="Peran"><Input noCaps list="roles" value={p.role || ''} onChange={(e) => setP({ ...p, role: e.target.value })} /><datalist id="roles">{['User Pengaju', 'Manager Pengaju', 'L1/VP Pengaju', 'Direktur Pengaju', 'Manager Sales', 'L1/VP Sales', 'Staff Anggaran', 'Manager Anggaran', 'L1/VP Anggaran', 'Direktur Anggaran', 'Manager Pengadaan', 'SPV Rendan', 'Staff Rendan', 'SPV Lakdan', 'Staff Lakdan', 'Partnership', 'Finance', 'Penandatangan', 'Penandatangan Vendor', 'Penandatangan Mitra'].map((r) => <option key={r} value={r} />)}</datalist></Field>
           <Field label="Perusahaan"><Select value={p.company_id ?? ''} onChange={(e) => setP({ ...p, company_id: Number(e.target.value) || null })}><option value="">–</option>{companies.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
           <Field label="Sub bidang"><Select value={p.sub_bidang || ''} onChange={(e) => setP({ ...p, sub_bidang: e.target.value })}><option value="">–</option><option>PLN 1</option><option>PLN 2</option></Select></Field>
           <Field label="Email"><Input value={p.email || ''} onChange={(e) => setP({ ...p, email: e.target.value })} /></Field>
@@ -70,13 +72,13 @@ function Lists({ items, groups }: { items: Record<string, Item[]>; groups: Recor
 }
 
 function Workflows({ templates }: { templates: Record<string, Tpl[]> }) {
-  const [scheme, setScheme] = useState('SPP');
-  const [rows, setRows] = useState<Tpl[]>(templates.SPP || []);
+  const [scheme, setScheme] = useState('SPP Pusat');
+  const [rows, setRows] = useState<Tpl[]>(templates['SPP Pusat'] || []);
   const pick = (s: string) => { setScheme(s); setRows(templates[s] || []); };
   const move = (i: number, d: -1 | 1) => { const n = [...rows]; [n[i], n[i + d]] = [n[i + d], n[i]]; setRows(n); };
   return (
     <Card><CardHead title="Template alur" desc="Perubahan berlaku untuk pengadaan baru; pengadaan berjalan memakai salinan alurnya sendiri."
-      actions={<><Select className="w-[220px]" value={scheme} onChange={(e) => pick(e.target.value)}><option value="SPP">Proses Pengadaan · SPP</option><option value="Kemitraan">Proses Pengadaan · Kemitraan</option><option value="Pasca">Pasca Pengadaan (per tahap)</option></Select><Button variant="primary" icon={Save} onClick={() => post(`/master/workflow/${scheme}`, { stages: rows.map((r) => ({ key: r.key, name: r.name, enabled: r.enabled, optional: r.optional, pic_id: r.pic_id, default_activities: r.default_activities || [] })) })}>Simpan</Button></>} />
+      actions={<><Select className="w-[220px]" value={scheme} onChange={(e) => pick(e.target.value)}><option value="SPP Pusat">Proses Pengadaan · SPP Pusat</option><option value="SPP Kemitraan">Proses Pengadaan · SPP Kemitraan</option><option value="Pasca">Pasca Pengadaan (per tahap)</option></Select><Button variant="primary" icon={Save} onClick={() => post(`/master/workflow/${scheme}`, { stages: rows.map((r) => ({ key: r.key, name: r.name, enabled: r.enabled, optional: r.optional, pic_id: r.pic_id, default_activities: r.default_activities || [] })) })}>Simpan</Button></>} />
       <TableWrap><thead><tr>{['Urutan', 'Kunci', 'Nama tahap', 'Aktif default', 'Opsional', 'Aktivitas default', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => <tr key={r.key + i}>
           <td className={td}><div className="flex gap-1"><button disabled={i === 0} onClick={() => move(i, -1)} aria-label="Naik" className="text-mute disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label="Turun" className="text-mute disabled:opacity-30"><ArrowDown size={14} /></button></div></td>
@@ -108,19 +110,23 @@ function Settings({ settings }: { settings: Record<string, number> }) {
 
 function Calendar({ holidays }: { holidays: Props['holidays'] }) {
   const [h, setH] = useState({ date: '', name: '', type: 'Libur Nasional' });
+  const pg = usePaged(holidays);
   return (
     <Card><CardHead title="Kalender kerja" desc="Libur nasional dan cuti bersama tidak dihitung sebagai hari kerja; hari kerja pengganti dihitung." />
       <div className="flex flex-wrap items-end gap-2 border-b border-line p-4"><Field label="Tanggal"><Input type="date" value={h.date} onChange={(e) => setH({ ...h, date: e.target.value })} /></Field><Field label="Keterangan"><Input value={h.name} onChange={(e) => setH({ ...h, name: e.target.value })} /></Field><Field label="Jenis"><Select value={h.type} onChange={(e) => setH({ ...h, type: e.target.value })}>{['Libur Nasional', 'Cuti Bersama', 'Hari Kerja Pengganti'].map((t) => <option key={t}>{t}</option>)}</Select></Field><Button icon={Plus} disabled={!h.date || !h.name} onClick={() => post('/master/kalender', h, () => setH({ date: '', name: '', type: 'Libur Nasional' }))}>Tambah</Button></div>
-      <TableWrap><thead><tr>{['Tanggal', 'Keterangan', 'Jenis', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead><tbody>{holidays.map((x) => <tr key={x.id}><td className={cx(td, 'num')}>{fmtDate(x.date)}</td><td className={td}>{x.name}</td><td className={td}>{x.type}</td><td className={td}><button aria-label="Hapus" className="text-mute hover:text-bad" onClick={() => router.delete(`/master/kalender/${x.id}`, { preserveScroll: true })}><Trash2 size={14} /></button></td></tr>)}</tbody></TableWrap>
+      <TableWrap><thead><tr>{['Tanggal', 'Keterangan', 'Jenis', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead><tbody>{pg.view.map((x) => <tr key={x.id}><td className={cx(td, 'num')}>{fmtDate(x.date)}</td><td className={td}>{x.name}</td><td className={td}>{x.type}</td><td className={td}><button aria-label="Hapus" className="text-mute hover:text-bad" onClick={() => router.delete(`/master/kalender/${x.id}`, { preserveScroll: true })}><Trash2 size={14} /></button></td></tr>)}</tbody></TableWrap>
+      <Pager p={pg} label="hari" />
     </Card>
   );
 }
 
 function Users({ users }: { users: Props['users'] }) {
+  const pg = usePaged(users);
   return (
     <Card><CardHead title="Pengguna" desc="Akun dibuat otomatis saat login SSO pertama. Admin mengatur peran: Admin, User Pengaju (dapat mengubah data) atau Pemantau (baca saja)." />
       <TableWrap><thead><tr>{['Nama', 'Email', 'Peran', 'Aktif'].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-        <tbody>{users.map((u) => <tr key={u.id}><td className={td}>{u.name}</td><td className={td}>{u.email}</td><td className={td}><Select className="h-8 w-[170px]" value={u.role} onChange={(e) => post(`/master/pengguna/${u.id}`, { role: e.target.value, active: u.active })}><option value="admin">Admin</option><option value="pengaju">User Pengaju</option><option value="viewer">Pemantau</option></Select></td><td className={td}><Switch checked={u.active} onChange={(v) => post(`/master/pengguna/${u.id}`, { role: u.role, active: v })} label={u.active ? 'Aktif' : 'Nonaktif'} /></td></tr>)}</tbody></TableWrap>
+        <tbody>{pg.view.map((u) => <tr key={u.id}><td className={td}>{u.name}</td><td className={td}>{u.email}</td><td className={td}><Select className="h-8 w-[170px]" value={u.role} onChange={(e) => post(`/master/pengguna/${u.id}`, { role: e.target.value, active: u.active })}><option value="admin">Admin</option><option value="pengaju">User Pengaju</option><option value="viewer">Pemantau</option></Select></td><td className={td}><Switch checked={u.active} onChange={(v) => post(`/master/pengguna/${u.id}`, { role: u.role, active: v })} label={u.active ? 'Aktif' : 'Nonaktif'} /></td></tr>)}</tbody></TableWrap>
+      <Pager p={pg} label="pengguna" />
     </Card>
   );
 }

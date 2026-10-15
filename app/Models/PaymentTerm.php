@@ -15,26 +15,31 @@ class PaymentTerm extends Model
 
     protected $casts = ['percent' => 'decimal:2', 'amount' => 'decimal:2', 'planned_end' => 'date', 'paid_at' => 'date'];
 
+    /** @return BelongsTo<Procurement, $this> */
     public function procurement(): BelongsTo
     {
         return $this->belongsTo(Procurement::class);
     }
 
+    /** @return BelongsToMany<BeritaAcara, $this> */
     public function beritaAcara(): BelongsToMany
     {
         return $this->belongsToMany(BeritaAcara::class, 'berita_acara_payment_term');
     }
 
+    /** @return HasOne<GoodsReceipt, $this> */
     public function goodsReceipt(): HasOne
     {
         return $this->hasOne(GoodsReceipt::class);
     }
 
+    /** @return HasOne<Invoice, $this> */
     public function invoice(): HasOne
     {
         return $this->hasOne(Invoice::class);
     }
 
+    /** @return HasMany<StageVisit, $this> */
     public function visits(): HasMany
     {
         return $this->hasMany(StageVisit::class, 'term_id')->orderBy('entered_at')->orderBy('id');

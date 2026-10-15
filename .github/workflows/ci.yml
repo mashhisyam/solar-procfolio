@@ -1,7 +1,7 @@
 name: CI
 
 on:
-  push: { branches: [main] }
+  push: { branches: [main, develop] }
   pull_request:
 
 jobs:
@@ -19,8 +19,8 @@ jobs:
       - run: composer install --prefer-dist --no-interaction --no-progress
       - run: cp .env.example .env && php artisan key:generate
       - run: ./vendor/bin/pint --test
-      - run: ./vendor/bin/phpstan analyse --no-progress
-      - run: php artisan test
+      - run: ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+      # Build frontend sebelum tes agar public/build/manifest.json tersedia untuk halaman yang dirender.
       - run: npm ci
       - run: npm run build
-      - run: ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+      - run: php artisan config:clear && php artisan test

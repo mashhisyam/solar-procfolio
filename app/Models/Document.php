@@ -13,11 +13,13 @@ class Document extends Model
 
     protected $casts = ['date' => 'date', 'required' => 'boolean', 'available' => 'boolean'];
 
+    /** @return BelongsTo<Procurement, $this> */
     public function procurement(): BelongsTo
     {
         return $this->belongsTo(Procurement::class);
     }
 
+    /** @return BelongsTo<Company, $this> */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'customer_id');

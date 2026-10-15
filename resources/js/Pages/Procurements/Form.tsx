@@ -6,7 +6,7 @@ import { PageHeader, PicSelect } from '@/Components/common';
 import { fmtDate, rp } from '@/lib/format';
 import type { Pic, StageDef } from '@/types';
 
-type Method = 'SPP' | 'Kemitraan';
+type Method = 'SPP Pusat' | 'SPP Kemitraan';
 interface RabRow { description: string; budget_type: 'OPEX' | 'CAPEX'; qty: number; unit: string; price: number }
 interface DocRow { id?: number; doc_type: string; number: string; title: string; date: string; required: boolean; available: boolean; link: string; note: string }
 interface RefDoc { doc_type: 'Surat Penugasan'; number: string; date: string; link: string }
@@ -15,16 +15,16 @@ interface Options {
   vendors: { id: number; name: string; type: string }[]; customers: { id: number; name: string }[];
   customerContracts: { id: number; kind: string; number: string; title: string; customer: string | null }[];
   pks: { id: number; number: string; title: string; partner_id: number; partner: string | null; label: string; end_date: string | null; future: number }[];
-  budgetCodes: { id: number; coa: string; cost_center: string; code: string; program: string; klasifikasi: string; active: boolean; year: number | null; budget_amount: number; used: number }[];
-  templates: Record<Method, StageDef[]>;
+  budgetCodes: { id: number; coa: string; cost_center: string; sub_bidang: string | null; code: string; program: string; klasifikasi: string; active: boolean; year: number | null; budget_amount: number; used: number }[];
+  templates: Record<Method, StageDef[]>; ccKinds: string[];
 }
 interface Props { procurement: (Record<string, unknown> & { code: string; has_contract: boolean }) | null; nextCode: string; options: Options }
 
 const STEPS = [
-  { key: 1, label: 'Identitas', icon: BadgeInfo }, { key: 2, label: 'Referensi', icon: Handshake }, { key: 3, label: 'RAB & PRK', icon: Wallet },
-  { key: 4, label: 'Checklist Dokumen', icon: ClipboardList }, { key: 5, label: 'Workflow', icon: GitBranch }, { key: 6, label: 'Review', icon: ClipboardCheck },
+  { key: 1, label: 'Identitas', icon: BadgeInfo }, { key: 2, label: 'Perjanjian Pelanggan', icon: Handshake }, { key: 3, label: 'RAB & PRK', icon: Wallet },
+  { key: 4, label: 'Dokumen Referensi', icon: ClipboardList }, { key: 5, label: 'Workflow', icon: GitBranch }, { key: 6, label: 'Review', icon: ClipboardCheck },
 ];
-const STEP_OF: Record<string, number> = { title: 1, method: 1, proc_type: 1, category: 1, proc_method: 1, spp_number: 1, spp_date: 1, pic_pengaju_id: 1, candidate_vendor_ids: 1, registered_at: 1, customer_contract_ids: 2, pks_id: 2, bak_number: 2, budget_code_id: 3, rab_items: 3, documents: 4, workflow: 5 };
+const STEP_OF: Record<string, number> = { title: 1, method: 1, proc_type: 1, category: 1, proc_method: 1, spp_number: 1, spp_date: 1, pic_pengaju_id: 1, candidate_vendor_ids: 1, registered_at: 1, customer_contract_ids: 2, pa_number: 2, pks_id: 2, bak_number: 2, budget_code_id: 3, rab_items: 3, documents: 4, workflow: 5 };
 const today = () => new Date().toISOString().slice(0, 10);
 /** Default tahap Perencana Pengadaan (Rendan) menurut metode. Pengguna tetap dapat mengubahnya lewat toggle. */
 const routed = (flow: StageDef[], procMethod: string): StageDef[] => flow.map((s) => (s.key.startsWith('rendan_') ? { ...s, enabled: procMethod !== 'Pengadaan Langsung' } : s));
@@ -36,28 +36,31 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
   const initDocs = (m: Method): DocRow[] => [...o.requiredDocs[m].map((t) => ({ doc_type: t, number: '', title: t, date: '', required: true, available: false, link: '', note: '' }))];
   const form = useForm({
     draft: false,
-    method: ((p?.method as Method) || 'SPP') as Method,
+    method: ((p?.method as Method) || 'SPP Pusat') as Method,
     title: (p?.title as string) || '', summary: (p?.summary as string) || '', proc_type: (p?.proc_type as string) || '', category: (p?.category as string) || '', proc_method: (p?.proc_method as string) || '',
     priority: ((p?.priority as string) || 'Normal') as 'Normal' | 'Urgent', sub_bidang: (p?.sub_bidang as string) || 'PLN 1', registered_at: (p?.registered_at as string) || today(),
     spp_number: (p?.spp_number as string) || '', spp_date: (p?.spp_date as string) || '', pic_pengaju_id: ((p?.pic_pengaju_id as number) || null) as number | null,
     candidate_vendor_ids: ((p?.candidate_vendor_ids as number[]) || []) as number[], customer_contract_ids: ((p?.customer_contract_ids as number[]) || []) as number[],
     pks_id: ((p?.pks_id as number) || '') as number | '', bak_number: (p?.bak_number as string) || '', bak_date: (p?.bak_date as string) || '',
+    pa_number: (p?.pa_number as string) || '',
     ref_docs: (((p?.ref_docs as RefDoc[]) || []).length ? (p!.ref_docs as RefDoc[]) : [{ doc_type: 'Surat Penugasan', number: '', date: '', link: '' }]) as RefDoc[],
     budget_code_id: ((p?.budget_code_id as number) || '') as number | '',
     rab_items: (((p?.rab_items as RabRow[]) || []).length ? (p!.rab_items as RabRow[]) : [{ description: '', budget_type: 'OPEX', qty: 1, unit: o.rabUnits[0] || 'LOT (SERVICE & MATERIAL)', price: 0 }]) as RabRow[],
-    documents: (((p?.documents as DocRow[]) || []).map((d) => ({ ...d, number: d.number || '', title: d.title || '', date: d.date || '', link: d.link || '', note: d.note || '' })).length ? (p!.documents as DocRow[]) : initDocs((p?.method as Method) || 'SPP')) as DocRow[],
-    workflow: ((p?.workflow as StageDef[]) || routed(o.templates[(p?.method as Method) || 'SPP'], (p?.proc_method as string) || '')) as StageDef[],
+    documents: (((p?.documents as DocRow[]) || []).map((d) => ({ ...d, number: d.number || '', title: d.title || '', date: d.date || '', link: d.link || '', note: d.note || '' })).length ? (p!.documents as DocRow[]) : initDocs((p?.method as Method) || 'SPP Pusat')) as DocRow[],
+    workflow: ((p?.workflow as StageDef[]) || routed(o.templates[(p?.method as Method) || 'SPP Pusat'], (p?.proc_method as string) || '')) as StageDef[],
   });
   const d = form.data;
   const [step, setStep] = useState(1);
   const [local, setLocal] = useState<Record<string, string>>({});
   const err = { ...local, ...form.errors } as Record<string, string>;
   const set = <K extends keyof typeof d>(k: K, v: (typeof d)[K]) => form.setData((prev) => ({ ...prev, [k]: v }));
+  // PRK mengikuti sub bidang pengadaan.
+  const prkList = o.budgetCodes.filter((b) => (b.active || b.id === d.budget_code_id) && (!b.sub_bidang || b.sub_bidang === d.sub_bidang));
   const prk = o.budgetCodes.find((b) => b.id === d.budget_code_id);
   const rab = d.rab_items.reduce((a, r) => a + (Number(r.qty) || 0) * (Number(r.price) || 0), 0);
   const locked = !!p?.has_contract;
 
-  const switchMethod = (m: Method) => form.setData({ ...d, method: m, workflow: routed(o.templates[m], m === 'SPP' ? d.proc_method : ''), documents: [...initDocs(m), ...d.documents.filter((x) => !x.required)], proc_method: m === 'SPP' ? d.proc_method : '', pks_id: '', bak_number: '' });
+  const switchMethod = (m: Method) => form.setData({ ...d, method: m, workflow: routed(o.templates[m], m === 'SPP Pusat' ? d.proc_method : ''), documents: [...initDocs(m), ...d.documents.filter((x) => !x.required)], proc_method: m === 'SPP Pusat' ? d.proc_method : '', pks_id: '', bak_number: '' });
 
   function validate(s: number): Record<string, string> {
     const e: Record<string, string> = {};
@@ -65,16 +68,16 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
       if (!d.title.trim()) e.title = 'Judul pengadaan wajib diisi.';
       if (!d.proc_type) e.proc_type = 'Pilih jenis pengadaan.';
       if (!d.category) e.category = 'Pilih kategori pengadaan.';
-      if (d.method === 'SPP' && !d.spp_number.trim()) e.spp_number = 'Nomor SPP wajib diisi.';
-      if (d.method === 'SPP' && !d.spp_date) e.spp_date = 'Tanggal SPP wajib diisi.';
-      if (d.method === 'SPP' && !d.proc_method) e.proc_method = 'Pilih metode pengadaan.';
+      if (d.method === 'SPP Pusat' && !d.spp_number.trim()) e.spp_number = 'Nomor SPP wajib diisi.';
+      if (d.method === 'SPP Pusat' && !d.spp_date) e.spp_date = 'Tanggal SPP wajib diisi.';
+      if (d.method === 'SPP Pusat' && !d.proc_method) e.proc_method = 'Pilih metode pengadaan.';
       if (!d.pic_pengaju_id) e.pic_pengaju_id = 'Pilih User Pengaju.';
       if (!d.candidate_vendor_ids.length) e.candidate_vendor_ids = 'Isi minimal satu calon vendor/mitra.';
     }
     if (s === 2) {
-      if (!d.customer_contract_ids.length) e.customer_contract_ids = 'Pilih minimal satu perjanjian pelanggan (BAKB, MoM Kesepakatan Harga, atau Kontrak Pelanggan).';
-      if (d.method === 'Kemitraan' && !d.pks_id) e.pks_id = 'Kemitraan wajib merujuk PKS.';
-      if (d.method === 'Kemitraan' && !d.bak_number.trim()) e.bak_number = 'Nomor BAK wajib diisi.';
+      if (!d.customer_contract_ids.length && !d.pa_number.trim()) e.customer_contract_ids = 'Pilih minimal satu perjanjian pelanggan atau isi nomor PA (Project Activation).';
+      if (d.method === 'SPP Kemitraan' && !d.pks_id) e.pks_id = 'Kemitraan wajib merujuk PKS.';
+      if (d.method === 'SPP Kemitraan' && !d.bak_number.trim()) e.bak_number = 'Nomor BAK wajib diisi.';
     }
     if (s === 3) {
       if (!d.budget_code_id) e.budget_code_id = 'Pilih PRK.';
@@ -86,7 +89,7 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
   const next = () => { const e = validate(step); setLocal(e); if (!Object.keys(e).length) setStep(Math.min(6, step + 1)); };
   const submit = (draft: boolean) => {
     if (!draft) { for (const s of [1, 2, 3, 5]) { const e = validate(s); if (Object.keys(e).length) { setLocal(e); setStep(s); return; } } }
-    else if (!d.title.trim() || (d.method === 'SPP' && !d.spp_number.trim())) { setLocal({ title: d.title.trim() ? '' : 'Judul wajib diisi.', spp_number: 'Nomor SPP wajib diisi, termasuk untuk draft.' }); setStep(1); return; }
+    else if (!d.title.trim() || (d.method === 'SPP Pusat' && !d.spp_number.trim())) { setLocal({ title: d.title.trim() ? '' : 'Judul wajib diisi.', spp_number: 'Nomor SPP wajib diisi, termasuk untuk draft.' }); setStep(1); return; }
     setLocal({});
     form.transform((x) => ({ ...x, draft }));
     const opts = { preserveScroll: true, onError: (errors: Record<string, string>) => { const first = Object.keys(errors)[0]?.split('.')[0]; if (first && STEP_OF[first]) setStep(STEP_OF[first]); } };
@@ -114,18 +117,18 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
           <div className="px-6 py-5">
             {step === 1 && (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Field label="Skema" required className="md:col-span-2"><Segmented value={d.method} onChange={(v) => !edit && switchMethod(v as Method)} options={[{ value: 'SPP', label: 'SPP' }, { value: 'Kemitraan', label: 'Kemitraan' }]} /></Field>
+                <Field label="Skema" required className="md:col-span-2"><Segmented value={d.method} onChange={(v) => !edit && switchMethod(v as Method)} options={[{ value: 'SPP Pusat', label: 'SPP Pusat' }, { value: 'SPP Kemitraan', label: 'SPP Kemitraan' }]} /></Field>
                 <Field label="Judul pengadaan" required error={err.title} className="md:col-span-2"><Input value={d.title} invalid={!!err.title} onChange={(e) => set('title', e.target.value)} placeholder="Contoh: Pengembangan Aplikasi Customer Portal" /></Field>
-                <Field label={d.method === 'SPP' ? 'Nomor SPP' : 'Nomor pengajuan'} required={d.method === 'SPP'} error={err.spp_number}><Input value={d.spp_number} invalid={!!err.spp_number} onChange={(e) => set('spp_number', e.target.value)} placeholder={d.method === 'SPP' ? 'Contoh: SPP/2026/BJB/000024' : 'Contoh: PGJ/2026/BJB/000027'} /></Field>
-                <Field label={d.method === 'SPP' ? 'Tanggal SPP' : 'Tanggal pengajuan'} required={d.method === 'SPP'} error={err.spp_date}><Input type="date" value={d.spp_date} onChange={(e) => set('spp_date', e.target.value)} /></Field>
+                <Field label={d.method === 'SPP Pusat' ? 'Nomor SPP' : 'Nomor pengajuan'} required={d.method === 'SPP Pusat'} error={err.spp_number}><Input value={d.spp_number} invalid={!!err.spp_number} onChange={(e) => set('spp_number', e.target.value)} placeholder={d.method === 'SPP Pusat' ? 'Contoh: SPP/2026/BJB/000024' : 'Contoh: PGJ/2026/BJB/000027'} /></Field>
+                <Field label={d.method === 'SPP Pusat' ? 'Tanggal SPP' : 'Tanggal pengajuan'} required={d.method === 'SPP Pusat'} error={err.spp_date}><Input type="date" value={d.spp_date} onChange={(e) => set('spp_date', e.target.value)} /></Field>
                 <Field label="Jenis pengadaan" required error={err.proc_type}><Select value={d.proc_type} invalid={!!err.proc_type} onChange={(e) => set('proc_type', e.target.value)}><option value="">Pilih jenis</option>{o.procTypes.map((x) => <option key={x}>{x}</option>)}</Select></Field>
-                {d.method === 'SPP' && <Field label="Metode pengadaan" required error={err.proc_method}><Select value={d.proc_method} invalid={!!err.proc_method} onChange={(e) => form.setData({ ...d, proc_method: e.target.value, workflow: locked ? d.workflow : routed(d.workflow, e.target.value) })}><option value="">Pilih metode</option>{o.procMethods.map((x) => <option key={x}>{x}</option>)}</Select></Field>}
+                {d.method === 'SPP Pusat' && <Field label="Metode pengadaan" required error={err.proc_method}><Select value={d.proc_method} invalid={!!err.proc_method} onChange={(e) => form.setData({ ...d, proc_method: e.target.value, workflow: locked ? d.workflow : routed(d.workflow, e.target.value) })}><option value="">Pilih metode</option>{o.procMethods.map((x) => <option key={x}>{x}</option>)}</Select></Field>}
                 <Field label="Prioritas" required><Segmented value={d.priority} onChange={(v) => set('priority', v as 'Normal' | 'Urgent')} options={[{ value: 'Normal', label: 'Normal' }, { value: 'Urgent', label: 'Urgent' }]} /></Field>
-                <Field label="Sub bidang"><Select value={d.sub_bidang} onChange={(e) => set('sub_bidang', e.target.value)}><option>PLN 1</option><option>PLN 2</option></Select></Field>
+                <Field label="Sub bidang" hint="Menentukan PRK yang dapat dipilih."><Select value={d.sub_bidang} onChange={(e) => { const sub = e.target.value; const keep = o.budgetCodes.find((b) => b.id === d.budget_code_id); form.setData({ ...d, sub_bidang: sub, budget_code_id: keep && (!keep.sub_bidang || keep.sub_bidang === sub) ? d.budget_code_id : '' }); }}><option>PLN 1</option><option>PLN 2</option></Select></Field>
                 <Field label="Kategori pengadaan" required error={err.category} hint="Daftar diatur di Master Daftar."><Select value={d.category} invalid={!!err.category} onChange={(e) => set('category', e.target.value)}><option value="">Pilih kategori</option>{o.categories.map((x) => <option key={x}>{x}</option>)}</Select></Field>
                 <Field label="User Pengaju" required error={err.pic_pengaju_id} hint="Daftar diambil dari Master & Konfigurasi, tab Organisasi & PIC."><PicSelect pics={o.pics} roles={['User Pengaju', 'Solution Architect']} value={d.pic_pengaju_id} onChange={(v) => set('pic_pengaju_id', v)} placeholder="Pilih User Pengaju" /></Field>
-                <Field label={d.method === 'Kemitraan' ? 'Calon mitra' : 'Calon vendor'} required error={err.candidate_vendor_ids} className="md:col-span-2" hint="Pemenang dipilih dari daftar ini saat rilis SP2K/PO dan otomatis menjadi Pihak Kedua di BA.">
-                  <MultiSelect options={o.vendors.filter((v) => d.method !== 'Kemitraan' || v.type === 'Mitra').map((v) => ({ value: String(v.id), label: v.name, sub: v.type }))} value={d.candidate_vendor_ids.map(String)} onChange={(v) => set('candidate_vendor_ids', v.map(Number))} placeholder="Cari dan pilih calon" invalid={!!err.candidate_vendor_ids} />
+                <Field label={d.method === 'SPP Kemitraan' ? 'Calon mitra' : 'Calon vendor'} required error={err.candidate_vendor_ids} className="md:col-span-2" hint="Pemenang dipilih dari daftar ini saat rilis SP2K/PO dan otomatis menjadi Pihak Kedua di BA.">
+                  <MultiSelect options={o.vendors.filter((v) => d.method !== 'SPP Kemitraan' || v.type === 'Mitra').map((v) => ({ value: String(v.id), label: v.name, sub: v.type }))} value={d.candidate_vendor_ids.map(String)} onChange={(v) => set('candidate_vendor_ids', v.map(Number))} placeholder="Cari dan pilih calon" invalid={!!err.candidate_vendor_ids} />
                 </Field>
                 <Field label="Detail pengadaan" className="md:col-span-2"><Textarea value={d.summary} onChange={(e) => set('summary', e.target.value)} /></Field>
               </div>
@@ -133,34 +136,27 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
 
             {step === 2 && (
               <div className="space-y-5">
-                <div className={cx('rounded-lg border px-3 py-2.5 text-[13px]', err.customer_contract_ids ? 'border-bad/40 bg-badsoft text-bad' : 'border-info/30 bg-infosoft')}><b>Perjanjian pelanggan wajib:</b> pilih BAKB, MoM Kesepakatan Harga, atau Kontrak Pelanggan yang menjadi dasar pengadaan ini. Daftarnya dikelola di menu Perjanjian Pelanggan.</div>
-                <Field label="Perjanjian pelanggan" required error={err.customer_contract_ids}><MultiSelect options={o.customerContracts.map((c) => ({ value: String(c.id), label: `${c.kind} · ${c.number}`, sub: `${c.title} · ${c.customer ?? ''}` }))} value={d.customer_contract_ids.map(String)} onChange={(v) => set('customer_contract_ids', v.map(Number))} placeholder="Cari jenis, nomor, judul atau pelanggan" invalid={!!err.customer_contract_ids} /></Field>
-                {d.method === 'Kemitraan' && (
+                <div className={cx('rounded-lg border px-3 py-2.5 text-[13px]', err.customer_contract_ids ? 'border-bad/40 bg-badsoft text-bad' : 'border-info/30 bg-infosoft')}><b>Dasar pelanggan wajib:</b> pilih minimal satu perjanjian pelanggan ({(o.ccKinds || []).join(', ')}) atau isi nomor PA (Project Activation). Perjanjian pelanggan dikelola di menu Perjanjian Pelanggan.</div>
+                <Field label="Perjanjian pelanggan" error={err.customer_contract_ids}><MultiSelect options={o.customerContracts.map((c) => ({ value: String(c.id), label: `${c.kind} · ${c.number}`, sub: `${c.title} · ${c.customer ?? ''}` }))} value={d.customer_contract_ids.map(String)} onChange={(v) => set('customer_contract_ids', v.map(Number))} placeholder="Cari jenis, nomor, judul atau pelanggan" invalid={!!err.customer_contract_ids} /></Field>
+                <Field label="Nomor PA (Project Activation)" error={err.pa_number} hint="PA tidak memiliki detail; cukup nomornya. Pisahkan dengan koma bila lebih dari satu.">
+                  <Input value={d.pa_number} onChange={(e) => set('pa_number', e.target.value)} placeholder="Contoh: PA/NDU/2026/004" />
+                </Field>
+                {d.method === 'SPP Kemitraan' && (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <Field label="PKS" required error={err.pks_id} className="md:col-span-3"><Select value={d.pks_id} invalid={!!err.pks_id} onChange={(e) => { const id = Number(e.target.value) || ''; const pk = o.pks.find((x) => x.id === id); form.setData({ ...d, pks_id: id, candidate_vendor_ids: pk && !d.candidate_vendor_ids.includes(pk.partner_id) ? [...d.candidate_vendor_ids, pk.partner_id] : d.candidate_vendor_ids }); }}><option value="">Pilih PKS</option>{o.pks.map((k) => <option key={k.id} value={k.id}>{k.number} · {k.partner} · {k.label}</option>)}</Select></Field>
                     <Field label="Nomor BAK" required error={err.bak_number}><Input value={d.bak_number} invalid={!!err.bak_number} onChange={(e) => set('bak_number', e.target.value)} /></Field>
                     <Field label="Tanggal BAK"><Input type="date" value={d.bak_date} onChange={(e) => set('bak_date', e.target.value)} /></Field>
                   </div>
                 )}
-                <div className="rounded-xl border border-line p-4">
-                  <p className="text-[14px] font-bold">Dokumen referensi pendukung</p><p className="text-[12.5px] text-mute">Opsional.</p>
-                  <div className="mt-3 space-y-3">{d.ref_docs.map((r, i) => { const upd = (patch: Partial<RefDoc>) => set('ref_docs', d.ref_docs.map((x, j) => (j === i ? { ...x, ...patch } : x))); return (
-                    <div key={i} className="grid grid-cols-1 gap-2 md:grid-cols-[170px_1fr_170px]">
-                      <span className="self-center text-[13px] font-semibold">{r.doc_type}</span>
-                      <Input value={r.number} onChange={(e) => upd({ number: e.target.value })} placeholder="Nomor dokumen" aria-label={`Nomor ${r.doc_type}`} />
-                      <Input type="date" value={r.date} onChange={(e) => upd({ date: e.target.value })} aria-label={`Tanggal ${r.doc_type}`} />
-                      <div className="md:col-span-3"><LinkField value={r.link} onChange={(v) => upd({ link: v })} /></div>
-                    </div>); })}</div>
-                </div>
               </div>
             )}
 
             {step === 3 && (
               <div className="space-y-5">
-                <Field label="PRK" required error={err.budget_code_id} hint="Satu pengadaan memakai satu PRK. Pagu dan sisa dikelola di menu RKAP.">
+                <Field label="PRK" required error={err.budget_code_id} hint={`Hanya PRK ${d.sub_bidang}. Satu pengadaan memakai satu PRK; nilai pengajuan dikelola di menu RKAP.`}>
                   <Select value={d.budget_code_id} invalid={!!err.budget_code_id} onChange={(e) => set('budget_code_id', Number(e.target.value) || '')}>
                     <option value="">Pilih PRK</option>
-                    {o.budgetCodes.filter((b) => b.active || b.id === d.budget_code_id).map((b) => <option key={b.id} value={b.id}>{b.code} · {b.program}</option>)}
+                    {prkList.map((b) => <option key={b.id} value={b.id}>{b.code} · {b.program}</option>)}
                   </Select>
                 </Field>
                 {prk && (() => {
@@ -218,7 +214,7 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
 
             {step === 4 && (
               <div className="space-y-3">
-                <p className="text-[13px] text-mute">{o.requiredDocs[d.method].join(' dan ')} wajib. Dokumen lain dapat ditambahkan sesuai kebutuhan.</p>
+                <p className="text-[13px] text-mute">{o.requiredDocs[d.method].join(' dan ')} wajib. Tambahkan dokumen referensi lain sesuai kebutuhan: {o.docTypes.filter((t) => !o.requiredDocs[d.method].includes(t)).join(', ')}.</p>
                 {d.documents.map((r, i) => { const upd = (patch: Partial<DocRow>) => set('documents', d.documents.map((x, j) => (j === i ? { ...x, ...patch } : x))); return (
                   <div key={i} className="rounded-xl border border-line p-3">
                     <div className="mb-2 flex flex-wrap items-center gap-3"><b className="text-[13.5px]">{r.doc_type}</b>{r.required && <span className="text-[11.5px] font-semibold text-bad">Wajib</span>}{!NO_NUMBER.includes(r.doc_type) && <Checkbox checked={r.available} onChange={(v) => upd({ available: v })} label="Tersedia" />}{NO_NUMBER.includes(r.doc_type) && <span className="text-[11.5px] text-mute">Tersedia bila tautan diisi</span>}{!r.required && <button className="ml-auto text-mute hover:text-bad" aria-label="Hapus dokumen" onClick={() => set('documents', d.documents.filter((_, j) => j !== i))}><Trash2 size={14} /></button>}</div>
@@ -231,7 +227,7 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
 
             {step === 5 && (locked ? <p className="text-[13px] text-mute">SP2K/PO sudah rilis; alur Proses Pengadaan terkunci dan hanya dapat dibuka melalui amandemen.</p> : (
               <div>
-                {d.method === 'SPP' && (
+                {d.method === 'SPP Pusat' && (
                   <div className="mb-3 rounded-lg bg-infosoft px-3 py-2 text-[12.5px]">
                     Setelah Anggaran, pengadaan masuk ke <b>Manager Pengadaan</b>.{' '}
                     {d.proc_method === 'Pengadaan Langsung'
@@ -268,10 +264,10 @@ export default function ProcurementForm({ procurement: p, nextCode, options: o }
 
             {step === 6 && (
               <div className="space-y-4">
-                <ReviewBlock title="Identitas" onEdit={() => setStep(1)} items={[['Skema', d.method], ['Judul', d.title], [d.method === 'SPP' ? 'Nomor SPP' : 'Nomor pengajuan', d.spp_number || '–'], ['Tanggal SPP', fmtDate(d.spp_date)], ['Metode', d.proc_method || '–'], ['Kategori', d.category || '–'], ['Prioritas', d.priority], ['User Pengaju', o.pics.find((x) => x.id === d.pic_pengaju_id)?.name || '–'], ['Calon vendor', o.vendors.filter((v) => d.candidate_vendor_ids.includes(v.id)).map((v) => v.name).join(', ') || '–']]} />
-                <ReviewBlock title="Referensi" onEdit={() => setStep(2)} items={[['Perjanjian pelanggan', o.customerContracts.filter((c) => d.customer_contract_ids.includes(c.id)).map((c) => `${c.kind} ${c.number}`).join(', ') || '–'], ...(d.method === 'Kemitraan' ? [['PKS', o.pks.find((k) => k.id === d.pks_id)?.number || '–'], ['BAK', d.bak_number || '–']] as [string, string][] : [])]} />
+                <ReviewBlock title="Identitas" onEdit={() => setStep(1)} items={[['Skema', d.method], ['Judul', d.title], [d.method === 'SPP Pusat' ? 'Nomor SPP' : 'Nomor pengajuan', d.spp_number || '–'], ['Tanggal SPP', fmtDate(d.spp_date)], ['Metode', d.proc_method || '–'], ['Kategori', d.category || '–'], ['Prioritas', d.priority], ['User Pengaju', o.pics.find((x) => x.id === d.pic_pengaju_id)?.name || '–'], ['Calon vendor', o.vendors.filter((v) => d.candidate_vendor_ids.includes(v.id)).map((v) => v.name).join(', ') || '–']]} />
+                <ReviewBlock title="Perjanjian Pelanggan" onEdit={() => setStep(2)} items={[['Perjanjian pelanggan', o.customerContracts.filter((c) => d.customer_contract_ids.includes(c.id)).map((c) => `${c.kind} ${c.number}`).join(', ') || '–'], ['Nomor PA', d.pa_number || '–'], ...(d.method === 'SPP Kemitraan' ? [['PKS', o.pks.find((k) => k.id === d.pks_id)?.number || '–'], ['BAK', d.bak_number || '–']] as [string, string][] : [])]} />
                 <ReviewBlock title="RAB & PRK" onEdit={() => setStep(3)} items={[['PRK', prk ? `${prk.code} · ${prk.program}` : '–'], ['Baris RAB', String(d.rab_items.length)], ['Total RAB', rp(rab)]]} />
-                <ReviewBlock title="Dokumen" onEdit={() => setStep(4)} items={[['Wajib tersedia', `${d.documents.filter((x) => x.required && (x.available || x.link)).length} dari ${d.documents.filter((x) => x.required).length}`], ['Opsional', String(d.documents.filter((x) => !x.required).length)]]} />
+                <ReviewBlock title="Dokumen Referensi" onEdit={() => setStep(4)} items={[['Wajib tersedia', `${d.documents.filter((x) => x.required && (x.available || x.link)).length} dari ${d.documents.filter((x) => x.required).length}`], ['Opsional', String(d.documents.filter((x) => !x.required).length)]]} />
                 <ReviewBlock title="Workflow" onEdit={() => setStep(5)} items={[['Alur', d.workflow.filter((s) => s.enabled).map((s) => s.name).join(' → ')]]} />
               </div>
             )}

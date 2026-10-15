@@ -2,6 +2,7 @@ export type Tone = 'bad' | 'warn' | 'info' | 'ok';
 
 export interface PageProps {
   app: { name: string; today: string };
+  period: { key: string; since: string | null; options: { value: string; label: string }[] };
   auth: { user: { id: number; name: string; email: string; role: string } | null; can: { edit: boolean; admin: boolean } };
   flash: { success?: string | null; error?: string | null; next?: { type: string; amendment_id?: number | null } | null };
   errors: Record<string, string>;
@@ -12,13 +13,13 @@ export interface Alert { code: string; tone: Tone; label: string; target: string
 
 /** Baris tabel monitoring (Dashboard & Daftar Pengadaan). */
 export interface ProcRow {
-  code: string; spp_number: string | null; title: string; rab_value: number; method: 'SPP' | 'Kemitraan'; proc_method: string | null;
+  code: string; spp_number: string | null; title: string; rab_value: number; method: 'SPP Pusat' | 'SPP Kemitraan'; proc_method: string | null;
   priority: 'Normal' | 'Urgent'; pengaju_name: string;
   progress: { approval: (string | null)[]; contract: boolean; terms: { paid: boolean; scheduled: boolean; stage: string | null }[] };
   track: 'pengadaan' | 'pasca'; amendment: boolean; stage: string | null; cycle: number; activity: string | null; pic: string | null;
   days: number | null; level: 'ok' | 'warn' | 'bad' | null; late_days: number; status: string; last_update: string; last_update_days: number;
   alerts: Alert[]; score: number; registered_at: string; vendor: string | null; sub_bidang: string | null; stage_key: string | null; pic_id: number | null;
-  customer_contract_ids: number[]; position: string | null; process_days: number; cost: number; category: string | null; is_draft?: boolean; cancelled?: boolean; amendment_running?: boolean;
+  customer_contract_ids: number[]; position: string | null; process_days: number; cost: number; category: string | null; is_draft?: boolean; cancelled?: boolean; cancel_type?: 'batal' | 'gagal' | null; amendment_running?: boolean;
 }
 
 export interface StepNode { key: string; name: string; group?: string | null; state: 'done' | 'current' | 'returned' | 'skipped' | 'pending'; cycles: number; date: string | null; days: number | null; scheduled: boolean }

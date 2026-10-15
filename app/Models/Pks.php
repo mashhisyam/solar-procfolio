@@ -15,16 +15,19 @@ class Pks extends Model
 
     protected $casts = ['date' => 'date', 'start_date' => 'date', 'end_date' => 'date'];
 
+    /** @return BelongsTo<Company, $this> */
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Company::class, 'partner_id');
     }
 
+    /** @return HasMany<PksAmendment, $this> */
     public function amendments(): HasMany
     {
         return $this->hasMany(PksAmendment::class)->orderBy('seq');
     }
 
+    /** @return HasMany<Procurement, $this> */
     public function procurements(): HasMany
     {
         return $this->hasMany(Procurement::class);

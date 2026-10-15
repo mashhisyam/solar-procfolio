@@ -19,13 +19,42 @@ use Illuminate\Support\Collection;
  */
 class ProcurementInsight
 {
-    /** Relasi yang perlu dimuat agar perhitungan tidak memicu query berulang. */
+    /**
+     * Relasi yang perlu dimuat agar perhitungan tidak memicu query berulang.
+     * BA cukup dimuat sekali lewat beritaAcara; status BA per tahap dicari dari koleksi itu (lihat ProcurementPresenter).
+     */
     public const WITH = [
-        'visits.pic', 'picPengaju', 'documents', 'customerContracts', 'contract.amendments', 'contract.vendor',
-        'terms.beritaAcara.rounds.signatories', 'terms.goodsReceipt', 'terms.invoice.payment', 'beritaAcara.rounds.signatories',
+        'visits.pic', 'documents', 'customerContracts', 'contract.amendments', 'contract.vendor', 'workContract.amendments',
+        'terms.goodsReceipt', 'terms.invoice.payment', 'beritaAcara.rounds.signatories',
     ];
 
-    public function __construct(private Cal $cal, private WorkflowService $workflow) {}
+    /** @var \WeakMap<Procurement, array<string, mixed>> */
+    private \WeakMap $memo;
+
+    public function __construct(private Cal $cal, private WorkflowService $workflow)
+    {
+        $this->memo = new \WeakMap;
+    }
+
+    /**
+     * Hasil hitungan per pengadaan disimpan selama instance ini hidup (satu permintaan), karena row(), alerts(),
+     * status() dan focusTerm() saling memanggil. Memo otomatis basi bila relasi visits/terms dimuat ulang
+     * (objek koleksinya berganti) atau pengadaan disimpan (updated_at berubah).
+     */
+    private function once(Procurement $p, string $name, \Closure $fn): mixed
+    {
+        $sig = spl_object_id($p->visits).':'.spl_object_id($p->terms).':'.$p->updated_at?->getTimestamp();
+        $slot = $this->memo[$p] ?? [];
+        if (($slot['sig'] ?? null) !== $sig) {
+            $slot = ['sig' => $sig];
+        }
+        if (! array_key_exists($name, $slot)) {
+            $slot[$name] = $fn();
+            $this->memo[$p] = $slot;
+        }
+
+        return $slot[$name];
+    }
 
     public function today(): string
     {
@@ -58,19 +87,22 @@ class ProcurementInsight
 
     public function currentApproval(Procurement $p): ?StageVisit
     {
-        return $p->visits->where('track', Track::Pengadaan->value)->where('status', VisitStatus::Running->value)->last();
+        return $this->once($p, 'approval', fn () => $p->visits->where('track', Track::Pengadaan->value)->where('status', VisitStatus::Running->value)->last());
     }
 
-    /** @return Collection<int, array{t:PaymentTerm, visits:Collection, cur:?StageVisit, plan:?array, paid:bool, scheduled:bool}> */
+    /** @return Collection<int, array{t:PaymentTerm, visits:\Illuminate\Database\Eloquent\Collection<int, StageVisit>, cur:?StageVisit, plan:?array{start:string, end:?string, days:?int}, paid:bool, scheduled:bool}> */
     public function termFlows(Procurement $p): Collection
     {
-        $plans = $this->workflow->termPlans($p);
+        return $this->once($p, 'flows', function () use ($p) {
+            $plans = $this->workflow->termPlans($p);
+            $byTerm = $p->visits->whereNotNull('term_id')->groupBy('term_id');
 
-        return $p->terms->sortBy('seq')->values()->map(function (PaymentTerm $t) use ($p, $plans) {
-            $visits = $p->visits->where('term_id', $t->id)->values();
-            $cur = $visits->where('status', VisitStatus::Running->value)->last();
+            return $p->terms->sortBy('seq')->values()->map(function (PaymentTerm $t) use ($plans, $byTerm) {
+                $visits = ($byTerm[$t->id] ?? new \Illuminate\Database\Eloquent\Collection)->values();
+                $cur = $visits->where('status', VisitStatus::Running->value)->last();
 
-            return ['t' => $t, 'visits' => $visits, 'cur' => $cur, 'plan' => $plans[$t->id] ?? null, 'paid' => (bool) $t->paid_at, 'scheduled' => $this->scheduled($cur)];
+                return ['t' => $t, 'visits' => $visits, 'cur' => $cur, 'plan' => $plans[$t->id] ?? null, 'paid' => (bool) $t->paid_at, 'scheduled' => $this->scheduled($cur)];
+            });
         });
     }
 
@@ -78,7 +110,7 @@ class ProcurementInsight
     {
         $open = $this->termFlows($p)->where('paid', false);
 
-        return $open->first(fn ($f) => $f['cur'] && ! $f['scheduled']) ?? $open->first(fn ($f) => $f['cur']) ?? $open->first();
+        return $open->first(fn ($f) => $f['cur'] !== null && ! $f['scheduled']) ?? $open->first(fn ($f) => $f['cur'] !== null) ?? $open->first();
     }
 
     /** na | noterm | berjalan | selesai */
@@ -91,18 +123,18 @@ class ProcurementInsight
             return 'noterm';
         }
 
-        return $p->terms->every(fn ($t) => $t->paid_at) ? 'selesai' : 'berjalan';
+        return $p->terms->every(fn ($t) => $t->paid_at !== null) ? 'selesai' : 'berjalan';
     }
 
     public function status(Procurement $p): string
     {
         if ($p->cancelled_at) {
-            return 'Dibatalkan';
+            return $p->cancel_type === 'gagal' ? 'Gagal' : 'Dibatalkan';
         }
         if ($p->is_draft) {
             return 'Draft';
         }
-        if ($p->contract && $p->contract->amendments->contains('status', 'Dalam Proses')) {
+        if ($p->activeAmendment()) {
             return 'Amandemen Berjalan';
         }
         if (! $p->contract) {
@@ -120,7 +152,7 @@ class ProcurementInsight
 
     public function isActive(Procurement $p): bool
     {
-        return ! in_array($this->status($p), ['Draft', 'Selesai', 'Dibatalkan'], true);
+        return ! in_array($this->status($p), ['Draft', 'Selesai', 'Dibatalkan', 'Gagal'], true);
     }
 
     public function lastUpdate(Procurement $p): string
@@ -166,11 +198,20 @@ class ProcurementInsight
     /** @return array<int, array{code:string, tone:string, label:string, target:string}> */
     public function alerts(Procurement $p): array
     {
+        return $this->once($p, 'alerts', fn () => $this->computeAlerts($p));
+    }
+
+    /** @return array<int, array{code:string, tone:string, label:string, target:string}> */
+    private function computeAlerts(Procurement $p): array
+    {
         if (! $this->isActive($p)) {
             return [];
         }
         $out = [];
-        $add = fn (string $code, string $tone, string $label, string $target) => $out[] = compact('code', 'tone', 'label', 'target');
+        // Harus closure dengan referensi: arrow function menyalin $out sehingga alert tidak pernah tercatat.
+        $add = function (string $code, string $tone, string $label, string $target) use (&$out): void {
+            $out[] = compact('code', 'tone', 'label', 'target');
+        };
 
         $v = $this->currentApproval($p);
         if ($v) {
@@ -180,9 +221,10 @@ class ProcurementInsight
                 $add($lvl === 'bad' ? 'dur-bad' : 'dur-warn', $lvl, "{$v->stage_name} {$days} hari", 'proses');
             }
         }
-        $hasBasis = $p->customerContracts->isNotEmpty();
+        // Dasar pelanggan: perjanjian pelanggan atau nomor PA.
+        $hasBasis = $p->customerContracts->isNotEmpty() || filled($p->pa_number);
         if (! $hasBasis) {
-            $add('basis', 'warn', 'Belum ada perjanjian pelanggan', 'ringkasan');
+            $add('basis', 'warn', 'Belum ada perjanjian pelanggan atau nomor PA', 'ringkasan');
         }
         if ($this->postState($p) === 'noterm') {
             $add('noterm', 'info', 'Tahapan pembayaran belum dibuat', 'pasca');
@@ -275,11 +317,14 @@ class ProcurementInsight
         }
         $alerts = $this->alerts($p);
         $lu = $this->lastUpdate($p);
-        $approvalNodes = collect($p->workflow)->filter(fn ($s) => $s['enabled'] ?? true)->map(function ($s) use ($p) {
-            $last = $p->visits->where('track', 'pengadaan')->whereNull('amendment_id')->where('stage_key', $s['key'])->last();
-
-            return $last?->status;
-        })->values();
+        // Status terakhir tiap tahap alur asli; satu kali lintasan visits (berurutan), bukan filter per tahap.
+        $lastStatus = [];
+        foreach ($p->visits as $visit) {
+            if ($visit->track === Track::Pengadaan->value && $visit->amendment_id === null) {
+                $lastStatus[$visit->stage_key] = $visit->status;
+            }
+        }
+        $approvalNodes = collect($p->workflow)->filter(fn ($s) => $s['enabled'] ?? true)->map(fn ($s) => $lastStatus[$s['key']] ?? null)->values();
 
         return [
             'code' => $p->code, 'spp_number' => $p->spp_number, 'title' => $p->title, 'rab_value' => (float) $p->rab_value,
@@ -343,10 +388,10 @@ class ProcurementInsight
             $term = $p->terms->firstWhere('id', $termId);
             $nodes[] = ['key' => 'final', 'group' => null, 'name' => 'Dibayar', 'state' => $term?->paid_at ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($term?->paid_at), 'days' => null, 'scheduled' => false];
         } elseif ($amendmentId) {
-            $am = $p->contract?->amendments->firstWhere('id', $amendmentId);
+            $am = $p->contractAmendments()->firstWhere('id', $amendmentId);
             $nodes[] = ['key' => 'final', 'group' => null, 'name' => 'Amandemen Rilis', 'state' => $am?->status === 'Rilis' ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($am?->date), 'days' => null, 'scheduled' => false];
         } else {
-            $nodes[] = ['key' => 'final', 'group' => null, 'name' => $p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
+            $nodes[] = ['key' => 'final', 'group' => null, 'name' => $p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
         }
 
         return $nodes;

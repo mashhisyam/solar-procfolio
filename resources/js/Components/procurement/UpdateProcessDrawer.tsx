@@ -7,7 +7,7 @@ import { fmtDate } from '@/lib/format';
 import type { CurrentVisit, PageProps, Pic, StageDef, Term } from '@/types';
 
 export type Mode = 'update' | 'complete' | 'return' | 'move' | 'skip' | 'rev_minor' | 'rev_major';
-type Tone = 'brand' | 'warn' | 'bad';
+type Tone = 'brand' | 'warn' | 'bad' | 'ok';
 /** Proses Pasca Pengadaan. */
 const MODES: { key: Mode; label: string; icon: typeof Save; desc: string; tone?: Tone }[] = [
   { key: 'update', label: 'Simpan Update', icon: Save, desc: 'Perbarui aktivitas, PIC atau catatan di tahap yang sama.' },
@@ -21,10 +21,11 @@ const APPROVAL_MODES: { key: Mode; label: string; icon: typeof Save; desc: strin
   { key: 'update', label: 'Simpan Update', icon: Save, desc: 'Perbarui aktivitas, PIC atau catatan di tahap yang sama.' },
   { key: 'rev_minor', label: 'Rev Minor', icon: Undo2, tone: 'warn', desc: 'Kembalikan ke User Pengaju. Setelah diperbaiki, proses langsung kembali ke tahap ini tanpa mengulang approval.' },
   { key: 'rev_major', label: 'Rev Mayor', icon: RotateCcw, tone: 'bad', desc: 'Kembalikan ke User Pengaju dan ulangi seluruh approval dari awal. Siklus approval bertambah satu.' },
-  { key: 'complete', label: 'Lanjut Approval', icon: CheckCircle2, desc: 'Tutup tahap aktif dan lanjut ke tahap berikutnya.' },
+  { key: 'complete', label: 'Lanjut Approval', icon: CheckCircle2, tone: 'ok', desc: 'Tutup tahap aktif dan lanjut ke tahap berikutnya.' },
 ];
-const TONE_ON: Record<Tone, string> = { brand: 'border-brand bg-brandsoft text-brand', warn: 'border-warn bg-warnsoft text-warn', bad: 'border-bad bg-badsoft text-bad' };
-const TONE_BTN: Record<Tone, string> = { brand: '', warn: '!bg-warn !text-white hover:!bg-warn/90', bad: '!bg-bad !text-white hover:!bg-bad/90' };
+const TONE_ON: Record<Tone, string> = { brand: 'border-brand bg-brandsoft text-brand', warn: 'border-warn bg-warnsoft text-warn', bad: 'border-bad bg-badsoft text-bad', ok: 'border-ok bg-oksoft text-ok' };
+// Semua tombol aksi memakai gaya primary; hanya warnanya yang berbeda.
+const TONE_BTN: Record<Tone, string> = { brand: '', warn: '!bg-warn !text-white hover:!bg-warn/90', bad: '!bg-bad !text-white hover:!bg-bad/90', ok: '!bg-ok !text-white hover:!bg-ok/90' };
 
 interface Props {
   open: boolean; onClose: () => void; code: string; track: 'pengadaan' | 'pasca'; term?: Term | null; current: CurrentVisit | null;
@@ -79,12 +80,13 @@ export default function UpdateProcessDrawer({ open, onClose, code, track, term, 
   return (
     <Drawer open={open} onClose={onClose} title="Update Proses" width="max-w-[600px]"
       desc={`${subject} · tahap aktif ${v.stage}${v.cycle > 1 ? ` (siklus ${v.cycle})` : ''}, masuk ${fmtDate(v.entered_at)}`}
-      footer={<><Button onClick={onClose}>Batal</Button><Button variant={cta.tone === 'bad' ? 'danger' : 'primary'} className={TONE_BTN[cta.tone || 'brand']} icon={cta.icon} onClick={submit} disabled={busy || ((mode === 'return' || mode === 'move') && !targets.length)}>{ctaLabel}</Button></>}>
+      footer={<><Button onClick={onClose}>Batal</Button><Button variant="primary" className={TONE_BTN[cta.tone || 'brand']} icon={cta.icon} onClick={submit} disabled={busy || ((mode === 'return' || mode === 'move') && !targets.length)}>{ctaLabel}</Button></>}>
       <div className={cx('grid grid-cols-2 gap-2', modes.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-5')} role="radiogroup" aria-label="Jenis pembaruan">
         {modes.map((m) => {
           const disabled = (m.key === 'return' && !earlier.length) || (m.key === 'move' && !later.length) || ((m.key === 'rev_minor' || m.key === 'rev_major') && atFirst);
           const on = mode === m.key;
-          return <button key={m.key} role="radio" aria-checked={on} disabled={disabled} onClick={() => setMode(m.key)} className={cx('flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-[12px] font-semibold transition disabled:opacity-40', on ? TONE_ON[m.tone || 'brand'] : m.tone === 'warn' ? 'border-warn/40 text-warn hover:bg-warnsoft' : m.tone === 'bad' ? 'border-bad/40 text-bad hover:bg-badsoft' : 'border-line text-mute hover:text-ink')}><m.icon size={17} />{m.label}</button>;
+          const off = m.tone === 'warn' ? 'border-warn/40 text-warn hover:bg-warnsoft' : m.tone === 'bad' ? 'border-bad/40 text-bad hover:bg-badsoft' : m.tone === 'ok' ? 'border-ok/40 text-ok hover:bg-oksoft' : 'border-line text-mute hover:text-ink';
+          return <button key={m.key} role="radio" aria-checked={on} disabled={disabled} onClick={() => setMode(m.key)} className={cx('flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-[12px] font-semibold transition disabled:opacity-40', on ? TONE_ON[m.tone || 'brand'] : off)}><m.icon size={17} />{m.label}</button>;
         })}
       </div>
       <p className="mt-2 text-[12.5px] text-mute">{cta.desc}</p>

@@ -16,26 +16,31 @@ class StageVisit extends Model
 
     protected $casts = ['entered_at' => 'date', 'completed_at' => 'date', 'last_update_at' => 'date'];
 
+    /** @return BelongsTo<Procurement, $this> */
     public function procurement(): BelongsTo
     {
         return $this->belongsTo(Procurement::class);
     }
 
+    /** @return BelongsTo<Pic, $this> */
     public function pic(): BelongsTo
     {
         return $this->belongsTo(Pic::class);
     }
 
+    /** @return BelongsTo<PaymentTerm, $this> */
     public function term(): BelongsTo
     {
         return $this->belongsTo(PaymentTerm::class, 'term_id');
     }
 
+    /** @return BelongsTo<ContractAmendment, $this> */
     public function amendment(): BelongsTo
     {
         return $this->belongsTo(ContractAmendment::class, 'amendment_id');
     }
 
+    /** @return HasMany<StageActivity, $this> */
     public function activities(): HasMany
     {
         return $this->hasMany(StageActivity::class)->orderBy('date')->orderBy('id');

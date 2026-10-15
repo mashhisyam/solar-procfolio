@@ -22,6 +22,7 @@ class User extends Authenticatable
         return ['email_verified_at' => 'datetime', 'password' => 'hashed', 'active' => 'boolean'];
     }
 
+    /** @return BelongsTo<Pic, $this> */
     public function pic(): BelongsTo
     {
         return $this->belongsTo(Pic::class);

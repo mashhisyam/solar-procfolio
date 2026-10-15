@@ -8,7 +8,7 @@ import type { PageProps } from '@/types';
 
 const NAV: { group: string; admin?: boolean; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
   { group: 'Monitoring', items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, { href: '/pengadaan', label: 'Daftar Pengadaan', icon: ListChecks }, { href: '/rkap', label: 'RKAP', icon: Landmark }] },
-  { group: 'Daftar Dokumen', items: [{ href: '/bakb', label: 'Perjanjian Pelanggan', icon: Handshake }, { href: '/pks', label: 'PKS & Amandemen', icon: ScrollText }, { href: '/kontrak', label: 'Daftar SP2K/PO', icon: FileSignature }] },
+  { group: 'Daftar Dokumen', items: [{ href: '/bakb', label: 'Perjanjian Pelanggan', icon: Handshake }, { href: '/pks', label: 'PKS & Amandemen', icon: ScrollText }, { href: '/kontrak', label: 'SP2K/PO & Kontrak', icon: FileSignature }] },
   { group: 'Register', items: [{ href: '/dokumen', label: 'Dokumen', icon: FileStack }, { href: '/ba', label: 'Berita Acara', icon: PenLine }, { href: '/tahapan', label: 'Tahapan, GR & Invoice', icon: Receipt }] },
   { group: 'Pengaturan', admin: true, items: [{ href: '/master', label: 'Master & Konfigurasi', icon: Settings2 }] },
 ];
@@ -34,7 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-full flex-col border-r border-line bg-side text-sideink">
       <Link href="/" className={cx('flex items-center gap-3 pb-4 pt-5', mini ? 'justify-center px-2' : 'px-5')} aria-label="Procfolio, ke Dashboard">
         <img src="/images/procfolio-icon.png" alt="" className={mini ? 'h-9 w-auto' : 'h-10 w-auto'} />
-        {!mini && <span><span className="block font-display text-[22px] font-bold leading-none"><span className="text-navy">Proc</span><span className="text-teal">folio</span></span><span className="mt-1 block text-[11px] leading-tight text-mute">Procurement Monitoring &amp; Archive</span></span>}
+        {!mini && <span><span className="grad-text block pb-0.5 font-display text-[23px] font-extrabold leading-none tracking-[-0.015em]">Procfolio</span><span className="mt-1 block text-[11px] leading-tight text-mute">Procurement Portfolio Monitoring</span></span>}
       </Link>
       <nav className={cx('flex-1 overflow-y-auto pb-3', mini ? 'px-2' : 'px-3')} aria-label="Menu utama">
         {NAV.filter((g) => !g.admin || auth.can.admin).map((g) => (

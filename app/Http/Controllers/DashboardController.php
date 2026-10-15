@@ -3,35 +3,48 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerContract;
-use App\Models\PaymentTerm;
+use App\Models\Pic;
 use App\Models\Procurement;
+use App\Services\DashboardStats;
 use App\Services\ProcurementInsight;
+use App\Support\Period;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Dashboard: ringkasan angka dan grafik. Daftar pengadaan tidak ditampilkan di sini; kartu dan posisi
+ * mengarah ke Daftar Pengadaan dengan filter yang sesuai.
+ */
 class DashboardController extends Controller
 {
-    public function __invoke(ProcurementInsight $insight): Response
+    public function __invoke(Request $request, DashboardStats $stats): Response
     {
-        $procs = Procurement::query()->with(ProcurementInsight::WITH)->whereNull('cancelled_at')->where('is_draft', false)->get();
-        $rows = $procs->filter(fn ($p) => $insight->isActive($p))->map(fn ($p) => $insight->row($p))->sortByDesc('score')->values();
-        $unpaid = PaymentTerm::query()->whereNull('paid_at')->whereIn('procurement_id', $procs->pluck('id'))->get(['amount']);
+        $f = [
+            'method' => in_array($request->query('skema'), ['SPP Pusat', 'SPP Kemitraan'], true) ? (string) $request->query('skema') : '',
+            'priority' => in_array($request->query('prioritas'), ['Urgent', 'Normal'], true) ? (string) $request->query('prioritas') : '',
+            'pengaju' => (int) $request->query('pengaju', 0),
+            'cc' => (int) $request->query('perjanjian', 0),
+        ];
+        $procs = Period::apply(Procurement::query(), Period::current($request))
+            ->where('is_draft', false)
+            ->when($f['method'], fn ($q, $v) => $q->where('method', $v))
+            ->when($f['priority'], fn ($q, $v) => $q->where('priority', $v))
+            ->when($f['pengaju'], fn ($q, $v) => $q->where('pic_pengaju_id', $v))
+            ->when($f['cc'], fn ($q, $v) => $q->whereHas('customerContracts', fn ($c) => $c->whereKey($v)))
+            ->with([...ProcurementInsight::WITH, 'customerContracts.customer:id,name'])
+            ->get();
+
+        // Pengadaan Gagal/Dibatalkan tidak ikut angka utama, tetapi tetap dihitung tersendiri.
+        [$stopped, $running] = $procs->partition(fn (Procurement $p) => $p->cancelled_at !== null);
 
         return Inertia::render('Dashboard', [
-            'rows' => $rows,
-            'kpi' => [
-                'active' => $rows->count(),
-                'spp' => $rows->where('method', 'SPP')->count(),
-                'kemitraan' => $rows->where('method', 'Kemitraan')->count(),
-                'urgent' => $rows->where('priority', 'Urgent')->count(),
-                'attention' => $rows->filter(fn ($r) => count($r['alerts']) > 0)->count(),
-                'unpaid_terms' => $unpaid->count(),
-                'unpaid_value' => (float) $unpaid->sum('amount'),
-                'done' => $procs->filter(fn ($p) => $insight->status($p) === 'Selesai')->count(),
-            ],
-            'filters' => [
-                'pengaju' => $rows->pluck('pengaju_name')->unique()->sort()->values(),
-                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'kind', 'number', 'revenue'])->map(fn ($c) => [...$c->only(['id', 'kind', 'number']), 'revenue' => (float) $c->revenue]),
+            ...$stats->build($running->values()),
+            'stopped' => $stats->stopped($stopped->values()),
+            'filters' => $f,
+            'options' => [
+                'pengaju' => Pic::query()->whereIn('id', Procurement::query()->whereNotNull('pic_pengaju_id')->select('pic_pengaju_id'))->orderBy('name')->get(['id', 'name']),
+                'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'kind', 'number']),
             ],
         ]);
     }

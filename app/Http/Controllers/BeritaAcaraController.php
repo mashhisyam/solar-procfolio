@@ -11,6 +11,7 @@ use App\Models\Procurement;
 use App\Rules\DocumentLink;
 use App\Services\AuditLogger;
 use App\Services\ProcurementInsight;
+use App\Support\Period;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,9 +24,9 @@ class BeritaAcaraController extends Controller
 {
     public function __construct(private AuditLogger $audit, private ProcurementInsight $insight) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $rows = BeritaAcara::query()->with(['procurement:id,code,spp_number,title', 'rounds.signatories', 'terms:id,seq'])->latest('date')->get()
+        $rows = Period::apply(BeritaAcara::query(), Period::current($request), 'procurement')->with(['procurement:id,code,spp_number,title', 'rounds.signatories', 'terms:id,seq'])->latest('date')->get()
             ->map(fn (BeritaAcara $b) => [
                 ...$b->only(['id', 'type', 'number', 'title', 'sub_bidang', 'contract_ref_type', 'contract_ref_number', 'link']),
                 'date' => Cal::iso($b->date), ...$this->insight->baInfo($b),
@@ -196,7 +197,7 @@ class BeritaAcaraController extends Controller
             'procurement' => ['code' => $p->code, 'spp_number' => $p->spp_number, 'title' => $p->title, 'sub_bidang' => $p->sub_bidang, 'method' => $p->method],
             'ba' => $ba ? [...$ba->only(['id', 'type', 'number', 'title', 'sub_bidang', 'contract_ref_type', 'contract_ref_number', 'director_internal', 'director_external', 'first_party', 'second_party', 'link']), 'date' => Cal::iso($ba->date), 'term_ids' => $ba->terms()->pluck('payment_terms.id')] : null,
             'defaults' => [
-                'contract_ref_type' => $vc ? ($vc->kind === 'PO' ? 'PO' : 'SP2K') : ($p->method === 'Kemitraan' ? 'BAK' : 'SP2K'),
+                'contract_ref_type' => $vc ? ($vc->kind === 'PO' ? 'PO' : 'SP2K') : ($p->method === 'SPP Kemitraan' ? 'BAK' : 'SP2K'),
                 'contract_ref_number' => $vc?->number ?? $p->bak_number,
                 'first_party' => 'PT Indonesia Comnets Plus',
                 'second_party' => $vc?->vendor?->name, // vendor pemenang menjadi Pihak Kedua

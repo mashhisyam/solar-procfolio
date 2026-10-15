@@ -4,10 +4,11 @@ import { CalendarClock, CheckCircle2, AlertTriangle, AlertOctagon, Clock, Circle
 import type { LucideIcon } from 'lucide-react';
 import { Badge, Tone as UiTone, cx, TableWrap, th, td, SearchSelect } from '@/Components/ui';
 import { fmtDate, rp } from '@/lib/format';
+import { Pager, usePaged } from '@/Components/Pagination';
 import type { Alert, PageProps, Pic, ProcRow, StepNode } from '@/types';
 
 const STATUS_TONE: Record<string, UiTone> = {
-  Draft: 'neutral', 'Persiapan Dokumen': 'info', 'Dalam Approval': 'info', 'Kontrak Rilis': 'brand', 'Pasca Pengadaan': 'info', 'Amandemen Berjalan': 'warn', Selesai: 'ok', Dibatalkan: 'neutral',
+  Draft: 'neutral', 'Persiapan Dokumen': 'info', 'Dalam Approval': 'info', 'Kontrak Rilis': 'brand', 'Pasca Pengadaan': 'info', 'Amandemen Berjalan': 'warn', Gagal: 'bad', Selesai: 'ok', Dibatalkan: 'neutral',
   'Dalam Proses': 'info', Dikembalikan: 'warn', Dilewati: 'outline',
   'Belum Diproses': 'neutral', 'Proses TTD': 'info', 'Perlu Revisi': 'warn', 'TTD Selesai': 'ok', 'Selesai TTD': 'ok',
   'Submit Invoice': 'info', Verifikasi: 'info', 'Antri Bayar': 'brand', Dibayar: 'ok',
@@ -221,7 +222,7 @@ export function ProcTable({ rows, sort, onSort }: { rows: ProcRow[]; sort?: { k:
           <td className={cx(td, 'whitespace-nowrap')}><div className="num text-[13.5px] font-extrabold tracking-tight text-navy">{r.spp_number || '–'}</div><div className="num text-[11.5px] font-semibold text-mute">{r.code}</div></td>
           <td className={cx(td, 'min-w-[220px] max-w-[280px]')}><div className="line-clamp-2 font-semibold">{r.title}</div></td>
           <td className={cx(td, 'num whitespace-nowrap text-right font-semibold')}>{r.rab_value ? rp(r.rab_value) : '–'}</td>
-          <td className={cx(td, 'min-w-[120px]')}><Badge tone={r.method === 'SPP' ? 'navy' : 'teal'}>{r.method}</Badge>{r.proc_method && <div className="mt-1 whitespace-nowrap text-[11.5px] text-mute">{r.proc_method}</div>}</td>
+          <td className={cx(td, 'min-w-[120px]')}><Badge tone={r.method === 'SPP Pusat' ? 'navy' : 'teal'}>{r.method}</Badge>{r.proc_method && <div className="mt-1 whitespace-nowrap text-[11.5px] text-mute">{r.proc_method}</div>}</td>
           <td className={cx(td, 'whitespace-nowrap')}>{r.pengaju_name || '–'}</td>
           <td className={cx(td, 'min-w-[150px]')}><div className="text-[11px] font-semibold text-mute">{r.track === 'pasca' ? 'Pasca Pengadaan' : r.amendment ? 'Amandemen' : 'Proses Pengadaan'}</div><div className="font-semibold">{r.stage || '–'}{r.cycle > 1 && <span className="ml-1 text-[11.5px] text-warn">siklus {r.cycle}</span>}</div></td>
           <td className={cx(td, 'min-w-[130px]')}>{r.activity || '–'}</td>
@@ -233,6 +234,12 @@ export function ProcTable({ rows, sort, onSort }: { rows: ProcRow[]; sort?: { k:
       ))}</tbody>
     </TableWrap>
   );
+}
+
+/** Tabel monitoring dengan paginasi, untuk daftar pengadaan di halaman detail (PRK, perjanjian, PKS). */
+export function PagedProcTable({ rows }: { rows: ProcRow[] }) {
+  const pg = usePaged(rows);
+  return <><ProcTable rows={pg.view} /><Pager p={pg} label="pengadaan" /></>;
 }
 
 /** Notifikasi singkat dari flash session. */

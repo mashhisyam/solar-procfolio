@@ -12,6 +12,7 @@ use App\Models\StageVisit;
 use App\Rules\DocumentLink;
 use App\Services\AuditLogger;
 use App\Services\WorkflowService;
+use App\Support\Period;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,9 +27,9 @@ class SettlementController extends Controller
     public function __construct(private AuditLogger $audit, private WorkflowService $workflow) {}
 
     /** Register tahapan, GR dan invoice lintas pengadaan. */
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $terms = PaymentTerm::query()->with(['procurement:id,code,spp_number,title', 'procurement.contract.vendor:id,name', 'goodsReceipt', 'invoice.payment'])
+        $terms = Period::apply(PaymentTerm::query(), Period::current($request), 'procurement')->with(['procurement:id,code,spp_number,title', 'procurement.contract.vendor:id,name', 'goodsReceipt', 'invoice.payment'])
             ->orderByDesc('id')->get()
             ->map(fn (PaymentTerm $t) => [
                 'id' => $t->id, 'seq' => $t->seq, 'name' => $t->name, 'amount' => (float) $t->amount, 'planned_end' => Cal::iso($t->planned_end), 'paid_at' => Cal::iso($t->paid_at),

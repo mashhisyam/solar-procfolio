@@ -3,6 +3,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import { Plus, Save } from 'lucide-react';
 import { Button, Card, Field, Input, LinkField, Modal, SearchInput, Select, TableWrap, Textarea, cx, td, th } from '@/Components/ui';
 import { PageHeader, RowLink, StatusBadge } from '@/Components/common';
+import { Pager, usePaged } from '@/Components/Pagination';
 import { fmtDate } from '@/lib/format';
 import type { PageProps } from '@/types';
 
@@ -30,15 +31,16 @@ export function PksModal({ open, onClose, item, partners }: { open: boolean; onC
 export default function PksIndex({ rows, partners }: { rows: PksRow[]; partners: { id: number; name: string }[] }) {
   const { auth, app } = usePage<PageProps>().props;
   const [q, setQ] = useState(''); const [modal, setModal] = useState(false);
-  const view = rows.filter((r) => !q || [r.number, r.title, r.partner].join(' ').toLowerCase().includes(q.toLowerCase()));
+  const filtered = rows.filter((r) => !q || [r.number, r.title, r.partner].join(' ').toLowerCase().includes(q.toLowerCase()));
+  const pg = usePaged(filtered, q);
   return (
     <>
       <Head title="PKS & Amandemen" />
-      <PageHeader title="PKS & Amandemen" desc="Kontrak payung kemitraan. Pengadaan Kemitraan merujuk versi PKS yang efektif." actions={auth.can.edit && <Button variant="primary" icon={Plus} onClick={() => setModal(true)}>Tambah PKS</Button>} />
+      <PageHeader title="PKS & Amandemen" actions={auth.can.edit && <Button variant="primary" icon={Plus} onClick={() => setModal(true)}>Tambah PKS</Button>} />
       <Card className="mb-4 p-3"><SearchInput value={q} onChange={setQ} placeholder="Cari nomor, judul atau mitra" /></Card>
       <Card><TableWrap><thead><tr>{['Nomor', 'Judul', 'Mitra', 'Versi efektif', 'Berlaku s.d.', 'Status', 'Pengadaan'].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-        <tbody>{view.map((k) => <RowLink key={k.id} href={`/pks/${k.id}`}><td className={cx(td, 'num font-bold text-brand')}>{k.number}</td><td className={td}>{k.title}</td><td className={td}>{k.partner}</td><td className={td}>{k.effective.label}{k.effective.future > 0 && <span className="block text-[11.5px] text-warn">{k.effective.future} amandemen belum efektif</span>}</td><td className={td}>{fmtDate(k.effective.end_date)}</td><td className={td}><StatusBadge status={k.effective.end_date && k.effective.end_date < app.today ? 'Berakhir' : 'Aktif'} /></td><td className={cx(td, 'num')}>{k.procurements || 0}</td></RowLink>)}</tbody>
-      </TableWrap></Card>
+        <tbody>{pg.view.map((k) => <RowLink key={k.id} href={`/pks/${k.id}`}><td className={cx(td, 'num font-bold text-brand')}>{k.number}</td><td className={td}>{k.title}</td><td className={td}>{k.partner}</td><td className={td}>{k.effective.label}{k.effective.future > 0 && <span className="block text-[11.5px] text-warn">{k.effective.future} amandemen belum efektif</span>}</td><td className={td}>{fmtDate(k.effective.end_date)}</td><td className={td}><StatusBadge status={k.effective.end_date && k.effective.end_date < app.today ? 'Berakhir' : 'Aktif'} /></td><td className={cx(td, 'num')}>{k.procurements || 0}</td></RowLink>)}</tbody>
+      </TableWrap><Pager p={pg} label="PKS" /></Card>
       <PksModal open={modal} onClose={() => setModal(false)} item={null} partners={partners} />
     </>
   );

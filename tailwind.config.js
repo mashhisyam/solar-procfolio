@@ -7,8 +7,8 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                display: ['Outfit', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
-                sans: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'Segoe UI', 'sans-serif'],
+                display: ['"Noto Sans"', 'system-ui', 'Segoe UI', 'sans-serif'],
+                sans: ['"Noto Sans"', 'system-ui', 'Segoe UI', 'sans-serif'],
             },
             colors: {
                 bg: v('bg'), surface: v('surface'), sunken: v('sunken'), line: v('line'), ink: v('ink'), mute: v('mute'),
