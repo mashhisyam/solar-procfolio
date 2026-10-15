@@ -14,16 +14,19 @@ class Invoice extends Model
 
     protected $casts = ['date' => 'date', 'amount' => 'decimal:2', 'checklist' => 'array'];
 
+    /** @return BelongsTo<PaymentTerm, $this> */
     public function term(): BelongsTo
     {
         return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
+    /** @return HasOne<Payment, $this> */
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
     }
 
+    /** @return BelongsTo<Pic, $this> */
     public function pic(): BelongsTo
     {
         return $this->belongsTo(Pic::class);

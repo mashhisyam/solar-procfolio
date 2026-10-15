@@ -11,6 +11,7 @@ use App\Models\Procurement;
 use App\Rules\DocumentLink;
 use App\Services\AuditLogger;
 use App\Services\ProcurementInsight;
+use App\Support\Period;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,9 +24,9 @@ class BeritaAcaraController extends Controller
 {
     public function __construct(private AuditLogger $audit, private ProcurementInsight $insight) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $rows = BeritaAcara::query()->with(['procurement:id,code,spp_number,title', 'rounds.signatories', 'terms:id,seq'])->latest('date')->get()
+        $rows = Period::apply(BeritaAcara::query(), Period::current($request), 'procurement')->with(['procurement:id,code,spp_number,title', 'rounds.signatories', 'terms:id,seq'])->latest('date')->get()
             ->map(fn (BeritaAcara $b) => [
                 ...$b->only(['id', 'type', 'number', 'title', 'sub_bidang', 'contract_ref_type', 'contract_ref_number', 'link']),
                 'date' => Cal::iso($b->date), ...$this->insight->baInfo($b),

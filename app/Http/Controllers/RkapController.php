@@ -24,7 +24,7 @@ class RkapController extends Controller
     public function index(ProcurementInsight $insight): Response
     {
         $used = BudgetCode::usedAmounts();
-        $procs = Procurement::query()->with(['budgetCodes:id', 'contract.amendments', 'visits', 'terms', 'documents', 'customerContracts'])
+        $procs = Procurement::query()->with(['budgetCodes:id', 'contract.amendments', 'workContract.amendments', 'visits', 'terms', 'documents', 'customerContracts'])
             ->where('is_draft', false)->whereNull('cancelled_at')->get();
         $byCode = [];
         foreach ($procs as $p) {

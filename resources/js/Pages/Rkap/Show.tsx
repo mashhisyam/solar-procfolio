@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { Pencil, ClipboardList } from 'lucide-react';
 import { Badge, Button, Card, CardHead, EmptyState, KV, cx } from '@/Components/ui';
-import { PageHeader, ProcTable } from '@/Components/common';
+import { PageHeader, PagedProcTable } from '@/Components/common';
 import { rp } from '@/lib/format';
 import type { PageProps, ProcRow } from '@/types';
 import PrkModal, { type PrkRow } from '@/Components/rkap/PrkModal';
@@ -40,7 +40,7 @@ export default function RkapShow({ prk, rows }: { prk: Prk; rows: ProcRow[] }) {
       </div>
       <Card>
         <CardHead icon={ClipboardList} title={`Pengadaan yang memakai PRK ini (${rows.length})`} desc="Nilai digunakan dihitung dari RAB pengadaan aktif (bukan draft dan tidak dibatalkan)." />
-        {rows.length ? <ProcTable rows={rows} /> : <EmptyState compact title="Belum ada pengadaan yang memakai PRK ini" />}
+        {rows.length ? <PagedProcTable rows={rows} /> : <EmptyState compact title="Belum ada pengadaan yang memakai PRK ini" />}
       </Card>
       <PrkModal item={edit ? prk : null} onClose={() => setEdit(false)} />
     </>

@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Models\Procurement;
 use App\Rules\DocumentLink;
 use App\Services\AuditLogger;
+use App\Support\Period;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,10 +18,10 @@ class DocumentController extends Controller
 {
     public function __construct(private AuditLogger $audit) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         return Inertia::render('Documents/Index', [
-            'rows' => Document::query()->with('procurement:id,code,spp_number,title')->latest('id')->get()->map(fn (Document $d) => [
+            'rows' => Period::apply(Document::query(), Period::current($request), 'procurement')->with('procurement:id,code,spp_number,title')->latest('id')->get()->map(fn (Document $d) => [
                 ...$d->only(['id', 'doc_type', 'number', 'title', 'required', 'available', 'link']), 'date' => Cal::iso($d->date),
                 'procurement' => $d->procurement->only(['code', 'spp_number', 'title']),
             ]),

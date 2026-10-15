@@ -112,8 +112,10 @@ class ReferenceSeeder extends Seeder
             ['5211990003', 'IC00592026', 'SUPPORT KEBUTUHAN PENUGASAN PLN', 'PRODUKSI LANGSUNG'],
         ];
         foreach ($codes as [$coa, $code, $program, $klas]) {
-            BudgetCode::query()->updateOrCreate(['code' => $code], ['coa' => $coa, 'cost_center' => $cc, 'program' => $program, 'klasifikasi' => $klas, 'active' => true]);
+            BudgetCode::query()->updateOrCreate(['code' => $code], ['coa' => $coa, 'cost_center' => $cc, 'sub_bidang' => PrkSeeder::subBidangOf($cc), 'program' => $program, 'klasifikasi' => $klas, 'active' => true]);
         }
+        // Daftar PRK lengkap dari berkas database/data/prk.csv (bila ada).
+        $this->call(PrkSeeder::class);
 
         $icon = Company::query()->firstOrCreate(['name' => 'PT Indonesia Comnets Plus'], ['type' => 'Internal', 'active' => true]);
         $admin = Pic::query()->firstOrCreate(['email' => 'admin@procfolio.local'], ['name' => 'Admin Procfolio', 'title' => 'Administrator', 'company_id' => $icon->id, 'role' => 'Solution Architect', 'active' => true]);

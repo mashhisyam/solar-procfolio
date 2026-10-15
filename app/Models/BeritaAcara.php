@@ -19,16 +19,19 @@ class BeritaAcara extends Model
 
     protected $casts = ['date' => 'date'];
 
+    /** @return BelongsTo<Procurement, $this> */
     public function procurement(): BelongsTo
     {
         return $this->belongsTo(Procurement::class);
     }
 
+    /** @return HasMany<BaRound, $this> */
     public function rounds(): HasMany
     {
         return $this->hasMany(BaRound::class)->orderBy('seq');
     }
 
+    /** @return BelongsToMany<PaymentTerm, $this> */
     public function terms(): BelongsToMany
     {
         return $this->belongsToMany(PaymentTerm::class, 'berita_acara_payment_term');

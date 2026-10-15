@@ -36,13 +36,15 @@ Jadwal tahap dihitung dari tanggal kick off dan rencana tanggal selesai tiap tah
 ## Aturan utama
 
 - Nomor SPP wajib diisi sejak registrasi, termasuk saat menyimpan draft.
-- Setiap pengadaan wajib merujuk minimal satu perjanjian pelanggan: Berita Acara Kesepakatan Biaya, Kontrak Perjanjian, Surat Penugasan, atau PA (Project Activation).
+- Setiap pengadaan wajib punya dasar pelanggan: minimal satu perjanjian pelanggan (Berita Acara Kesepakatan Biaya, Kontrak Perjanjian, Surat Penugasan) atau nomor PA (Project Activation). PA tidak memiliki detail; cukup nomornya di pengadaan.
 - Setiap pengadaan memakai satu PRK. RAB diisi per baris (deskripsi, tipe anggaran, jumlah, satuan, harga) dan nilainya dihitung otomatis.
 - Setiap pengadaan memiliki kategori (Lisensi/Non Lisensi, dari master).
-- Dashboard menampilkan cost, revenue (dari perjanjian pelanggan), posisi setiap proses, dan jumlah pengadaan selesai.
+- Dashboard tidak memuat daftar pengadaan. Isinya: jumlah pengadaan aktif/Urgent/Butuh Perhatian/Selesai, RAB Usulan Pengadaan, RAB Realisasi (nilai SP2K/PO setelah PPN), Revenue, Revenue vs Cost per perjanjian pelanggan (Revenue, RAB Pengadaan, Nilai SP2K), persebaran pengadaan aktif per posisi, dan Top 5 (waktu proses, nilai SP2K/PO, proses approval, vendor pemenang).
+- Filter periode registrasi pengadaan: 2 bulan terakhir (bawaan), 6 bulan, 1 tahun, atau semua. Berlaku di Dashboard, Daftar Pengadaan, SP2K/PO & Kontrak Pengadaan, Dokumen, Berita Acara, Tahapan, dan ekspor Excel; pilihan disimpan di sesi.
+- Setiap daftar memakai paginasi dengan pilihan 10/25/50/100 baris per halaman.
 - Menu RKAP memantau penetapan anggaran tiap PRK per sub bidang: Nilai Pengajuan, Nilai Digunakan, dan Sisa Anggaran. Sisa boleh minus dan hanya diinformasikan.
 - PRK yang dapat dipilih saat registrasi mengikuti sub bidang pengadaan.
-- Pekerjaan dapat memiliki kontrak perjanjian pelaksanaan di samping SP2K/PO.
+- Pekerjaan dapat memiliki Kontrak Pengadaan di samping SP2K/PO. Perlakuannya sama dengan SP2K/PO (koreksi data, amandemen, halaman kontrak); vendornya mengikuti pemenang. Hanya SP2K/PO yang mengunci Proses Pengadaan, membentuk tahapan pembayaran, dan menjadi Cost. Satu pengadaan hanya boleh memiliki satu amandemen berjalan.
 - Calon vendor diisi saat registrasi. Pemenang dipilih dari daftar itu saat rilis SP2K/PO, lalu otomatis menjadi Pihak Kedua di setiap BA.
 - Tahapan pembayaran diisi saat rilis SP2K/PO: syarat penyerahan, rencana tanggal selesai, persentase, dan nilai bayar.
 - Dokumen tidak diunggah. Setiap isian dokumen berupa tautan (SharePoint atau sharefolder).
@@ -115,7 +117,7 @@ Akun dibuat otomatis saat login SSO pertama dengan peran User Pengaju. Admin dap
 ## Pengujian
 
 ```bash
-composer test          # Pest: aturan hari kerja, alert, alur proses, amandemen
+php artisan config:clear && php artisan test   # Pest (SQLite memori): hari kerja, alert, alur proses, amandemen, Kontrak Pengadaan, PA, periode, Dashboard, DemoSeeder
 npm run typecheck      # TypeScript
 ./vendor/bin/pint      # Format kode PHP
 ./vendor/bin/phpstan analyse   # Analisis statis
@@ -132,9 +134,12 @@ app/
     WorkflowService.php      Mesin alur dua progres, amandemen, rilis kontrak
     ProcurementInsight.php   Status, durasi, alert, stepper, baris tabel
     ProcurementPresenter.php Data halaman detail
+    DashboardStats.php       Angka dan grafik Dashboard
   Support/WorkdayCalendar.php  Hari kerja Indonesia
+  Support/Period.php           Filter periode registrasi
 database/migrations/  Skema
-database/seeders/     ReferenceSeeder (wajib), DemoSeeder (contoh)
+database/seeders/     ReferenceSeeder (wajib), PrkSeeder (impor PRK dari CSV), DemoSeeder (contoh)
+database/data/prk.csv Daftar PRK untuk PrkSeeder
 resources/js/
   Pages/            Halaman Inertia
   Components/       UI dasar, komponen bersama, form pengadaan
@@ -143,4 +148,4 @@ docker/             Nginx, PHP, skrip backup
 
 ## Catatan
 
-Angka pada `.env.example` dan seeder adalah data contoh. Kode anggaran awal memakai cost center Sub Bid Sol Arch PLN 2; tambahkan kode untuk unit lain lewat Master & Konfigurasi.
+Angka pada `.env.example` dan seeder adalah data contoh. Daftar PRK diimpor dari `database/data/prk.csv` (pemisah `;` atau `,`, kolom `coa;kode_anggaran;program;klasifikasi;cost_center;sub_bidang;nilai_pengajuan;tahun`) dengan `php artisan db:seed --class=PrkSeeder`. Sub bidang yang kosong ditebak dari nama cost center (PLN 1 / PLN 2). PRK juga dapat ditambah satu per satu di menu RKAP.

@@ -59,13 +59,13 @@ export function ReleaseContractModal({ open, onClose, code, method, title, candi
   );
 }
 
-/** Koreksi data non-finansial kontrak. */
-export function ContractEditModal({ open, onClose, contract }: { open: boolean; onClose: () => void; contract: { id: number; number: string; title: string; date: string | null; scope: string | null; link: string | null } }) {
+/** Koreksi data non-finansial kontrak (SP2K/PO maupun Kontrak Pengadaan). */
+export function ContractEditModal({ open, onClose, contract }: { open: boolean; onClose: () => void; contract: { id: number; kind?: string; number: string; title: string; date: string | null; scope: string | null; link: string | null } }) {
   const form = useForm({ number: contract.number, title: contract.title, date: contract.date || '', scope: contract.scope || '', link: contract.link || '' });
   useEffect(() => { if (open) form.setData({ number: contract.number, title: contract.title, date: contract.date || '', scope: contract.scope || '', link: contract.link || '' }); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const e = form.errors;
   return (
-    <Modal open={open} onClose={onClose} width="max-w-2xl" title="Koreksi data kontrak" desc="Nilai, tanggal mulai dan tahapan pembayaran hanya dapat diubah melalui amandemen."
+    <Modal open={open} onClose={onClose} width="max-w-2xl" title={`Koreksi data ${contract.kind || 'kontrak'}`} desc="Nilai, tanggal mulai dan tahapan pembayaran hanya dapat diubah melalui amandemen."
       footer={<><Button onClick={onClose}>Batal</Button><Button variant="primary" icon={Save} disabled={form.processing} onClick={() => form.put(`/kontrak/${contract.id}`, { preserveScroll: true, onSuccess: onClose })}>Simpan</Button></>}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Nomor kontrak" required error={e.number}><Input value={form.data.number} onChange={(x) => form.setData('number', x.target.value)} /></Field>
@@ -83,12 +83,13 @@ function Chips({ value, onChange, options }: { value: string[]; onChange: (v: st
   return <div className="flex flex-wrap gap-2">{options.map((o) => { const on = value.includes(o.key); return <button type="button" key={o.key} aria-pressed={on} onClick={() => onChange(on ? value.filter((x) => x !== o.key) : [...value, o.key])} className={cx('rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold', on ? 'border-brand bg-brandsoft text-brand' : 'border-line text-mute hover:text-ink')}>{o.label}</button>; })}</div>;
 }
 
-/** Ajukan amandemen SP2K/PO: membuka alur approval khusus amandemen di Proses Pengadaan. */
-export function AmendmentRequestModal({ open, onClose, code, kind, number, stages }: { open: boolean; onClose: () => void; code: string; kind: string; number: string; stages: StageDef[] }) {
+/** Ajukan amandemen SP2K/PO atau Kontrak Pengadaan: membuka alur approval khusus amandemen di Proses Pengadaan. */
+export function AmendmentRequestModal({ open, onClose, code, contractId, kind, number, stages }: { open: boolean; onClose: () => void; code: string; contractId?: number | null; kind: string; number: string; stages: StageDef[] }) {
   const { app } = usePage<PageProps>().props;
   const enabled = stages.filter((s) => s.enabled);
-  const form = useForm({ reason: '', change_types: [] as string[], proposal: '', stages: [enabled[0]?.key, enabled[enabled.length - 1]?.key].filter(Boolean) as string[], date: app.today });
-  useEffect(() => { if (open) { form.reset(); form.clearErrors(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const init = () => ({ reason: '', change_types: [] as string[], proposal: '', stages: [enabled[0]?.key, enabled[enabled.length - 1]?.key].filter(Boolean) as string[], date: app.today, contract_id: (contractId ?? null) as number | null });
+  const form = useForm(init());
+  useEffect(() => { if (open) { form.setData(init()); form.clearErrors(); } }, [open, contractId]); // eslint-disable-line react-hooks/exhaustive-deps
   const e = form.errors as Record<string, string>;
   // Perubahan nilai wajib melewati seluruh jenjang Anggaran.
   const budgetKeys = enabled.filter((s) => s.group === 'Anggaran' || s.key.startsWith('anggaran')).map((s) => s.key);
@@ -131,12 +132,46 @@ export function AmendmentReleaseModal({ open, onClose, code, amendment, contract
   );
 }
 
-export function CancelModal({ open, onClose, code }: { open: boolean; onClose: () => void; code: string }) {
-  const [reason, setReason] = useState(''); const { errors } = usePage<PageProps>().props;
+/**
+ * Catat Kontrak Pengadaan di samping SP2K/PO. Vendor otomatis pemenang; isian awal disalin dari SP2K/PO.
+ * Setelah dicatat, perubahan lewat koreksi data atau amandemen, sama seperti SP2K/PO.
+ */
+export function WorkContractModal({ open, onClose, code, base }: { open: boolean; onClose: () => void; code: string; base: { kind: string; title: string; vendor: string | null; kickoff_date: string | null; end_date: string | null; value_excl: number; value_incl: number; scope: string | null } }) {
+  const { app } = usePage<PageProps>().props;
+  const init = () => ({ number: '', title: base.title, date: app.today, kickoff_date: base.kickoff_date || app.today, end_date: base.end_date || '', value_excl: base.value_excl, value_incl: base.value_incl, scope: base.scope || '', link: '' });
+  const form = useForm(init());
+  useEffect(() => { if (open) { form.setData(init()); form.clearErrors(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const d = form.data; const e = form.errors as Record<string, string>;
   return (
-    <Modal open={open} onClose={onClose} title="Batalkan pengadaan" desc="Data tetap tersimpan dan dapat diaktifkan kembali."
-      footer={<><Button onClick={onClose}>Batal</Button><Button variant="danger" onClick={() => router.post(`/pengadaan/${code}/batal`, { reason }, { preserveScroll: true, onSuccess: onClose })}>Batalkan pengadaan</Button></>}>
-      <Field label="Alasan pembatalan" required error={errors.reason}><Textarea value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+    <Modal open={open} onClose={onClose} width="max-w-2xl" title="Catat Kontrak Pengadaan" desc={`Kontrak di samping ${base.kind}. Vendor: ${base.vendor || '–'} (pemenang). Isian awal disalin dari ${base.kind}.`}
+      footer={<><Button onClick={onClose}>Batal</Button><Button variant="primary" icon={Save} disabled={form.processing} onClick={() => form.post(`/pengadaan/${code}/kontrak-pengadaan`, { preserveScroll: true, onSuccess: onClose })}>Simpan</Button></>}>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Nomor kontrak" required error={e.number}><Input value={d.number} invalid={!!e.number} onChange={(x) => form.setData('number', x.target.value)} placeholder="KTR/ICP/2026/0xxx" /></Field>
+        <Field label="Tanggal kontrak" required error={e.date}><Input type="date" value={d.date} onChange={(x) => form.setData('date', x.target.value)} /></Field>
+        <Field label="Judul pekerjaan" required error={e.title} className="sm:col-span-2"><Input value={d.title} onChange={(x) => form.setData('title', x.target.value)} /></Field>
+        <Field label="Nilai sebelum PPN" required error={e.value_excl}><MoneyInput value={d.value_excl} onChange={(n) => form.setData('value_excl', n)} invalid={!!e.value_excl} /></Field>
+        <Field label="Nilai setelah PPN" required error={e.value_incl}><MoneyInput value={d.value_incl} onChange={(n) => form.setData('value_incl', n)} invalid={!!e.value_incl} /></Field>
+        <Field label="Tanggal mulai" required error={e.kickoff_date}><Input type="date" value={d.kickoff_date} onChange={(x) => form.setData('kickoff_date', x.target.value)} /></Field>
+        <Field label="Rencana selesai" error={e.end_date}><Input type="date" value={d.end_date} onChange={(x) => form.setData('end_date', x.target.value)} /></Field>
+        <Field label="Ruang lingkup" className="sm:col-span-2"><Textarea value={d.scope} onChange={(x) => form.setData('scope', x.target.value)} /></Field>
+        <Field label="Tautan dokumen kontrak" className="sm:col-span-2" error={e.link}><LinkField value={d.link} onChange={(v) => form.setData('link', v)} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Hentikan pengadaan. Jenisnya ditentukan sistem: Dibatalkan bila belum masuk unit pengadaan (masih di Pengaju, Sales, Anggaran),
+ * Gagal bila sudah masuk (Manager Pengadaan, Rendan, Lakdan, Partnership). Data tidak dihapus.
+ */
+export function CancelModal({ open, onClose, code, type }: { open: boolean; onClose: () => void; code: string; type: 'batal' | 'gagal' }) {
+  const [reason, setReason] = useState(''); const { errors } = usePage<PageProps>().props;
+  const gagal = type === 'gagal';
+  return (
+    <Modal open={open} onClose={onClose} title={gagal ? 'Nyatakan pengadaan gagal' : 'Batalkan pengadaan'}
+      desc={`${gagal ? 'Pengadaan sudah masuk unit pengadaan, sehingga dicatat sebagai Pengadaan Gagal.' : 'Pengadaan belum masuk unit pengadaan, sehingga dicatat sebagai Pengadaan Dibatalkan.'} Data tidak dihapus, tetap dihitung di Dashboard, dan dapat diaktifkan kembali.`}
+      footer={<><Button onClick={onClose}>Kembali</Button><Button variant="danger" onClick={() => router.post(`/pengadaan/${code}/batal`, { reason }, { preserveScroll: true, onSuccess: onClose })}>{gagal ? 'Nyatakan gagal' : 'Batalkan pengadaan'}</Button></>}>
+      <Field label={gagal ? 'Alasan gagal' : 'Alasan pembatalan'} required error={errors.reason}><Textarea value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
     </Modal>
   );
 }

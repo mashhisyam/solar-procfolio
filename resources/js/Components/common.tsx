@@ -4,10 +4,11 @@ import { CalendarClock, CheckCircle2, AlertTriangle, AlertOctagon, Clock, Circle
 import type { LucideIcon } from 'lucide-react';
 import { Badge, Tone as UiTone, cx, TableWrap, th, td, SearchSelect } from '@/Components/ui';
 import { fmtDate, rp } from '@/lib/format';
+import { Pager, usePaged } from '@/Components/Pagination';
 import type { Alert, PageProps, Pic, ProcRow, StepNode } from '@/types';
 
 const STATUS_TONE: Record<string, UiTone> = {
-  Draft: 'neutral', 'Persiapan Dokumen': 'info', 'Dalam Approval': 'info', 'Kontrak Rilis': 'brand', 'Pasca Pengadaan': 'info', 'Amandemen Berjalan': 'warn', Selesai: 'ok', Dibatalkan: 'neutral',
+  Draft: 'neutral', 'Persiapan Dokumen': 'info', 'Dalam Approval': 'info', 'Kontrak Rilis': 'brand', 'Pasca Pengadaan': 'info', 'Amandemen Berjalan': 'warn', Gagal: 'bad', Selesai: 'ok', Dibatalkan: 'neutral',
   'Dalam Proses': 'info', Dikembalikan: 'warn', Dilewati: 'outline',
   'Belum Diproses': 'neutral', 'Proses TTD': 'info', 'Perlu Revisi': 'warn', 'TTD Selesai': 'ok', 'Selesai TTD': 'ok',
   'Submit Invoice': 'info', Verifikasi: 'info', 'Antri Bayar': 'brand', Dibayar: 'ok',
@@ -233,6 +234,12 @@ export function ProcTable({ rows, sort, onSort }: { rows: ProcRow[]; sort?: { k:
       ))}</tbody>
     </TableWrap>
   );
+}
+
+/** Tabel monitoring dengan paginasi, untuk daftar pengadaan di halaman detail (PRK, perjanjian, PKS). */
+export function PagedProcTable({ rows }: { rows: ProcRow[] }) {
+  const pg = usePaged(rows);
+  return <><ProcTable rows={pg.view} /><Pager p={pg} label="pengadaan" /></>;
 }
 
 /** Notifikasi singkat dari flash session. */

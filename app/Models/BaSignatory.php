@@ -11,11 +11,13 @@ class BaSignatory extends Model
 
     protected $casts = ['sent_at' => 'date', 'signed_at' => 'date'];
 
+    /** @return BelongsTo<Pic, $this> */
     public function pic(): BelongsTo
     {
         return $this->belongsTo(Pic::class);
     }
 
+    /** @return BelongsTo<BaRound, $this> */
     public function round(): BelongsTo
     {
         return $this->belongsTo(BaRound::class, 'ba_round_id');

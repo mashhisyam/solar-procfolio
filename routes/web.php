@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/pengadaan/{procurement}/proses/buka', [ProcessController::class, 'reopen']);
 
         Route::post('/pengadaan/{procurement}/kontrak', [ContractController::class, 'store']);
+        Route::post('/pengadaan/{procurement}/kontrak-pengadaan', [ContractController::class, 'storeWork']);
         Route::put('/kontrak/{contract}', [ContractController::class, 'update']);
         Route::post('/pengadaan/{procurement}/amandemen', [AmendmentController::class, 'store']);
         Route::post('/pengadaan/{procurement}/amandemen/{amendment}/rilis', [AmendmentController::class, 'release']);

@@ -14,16 +14,19 @@ class GoodsReceipt extends Model
 
     protected $casts = ['submitted_at' => 'date', 'gr_date' => 'date'];
 
+    /** @return BelongsTo<PaymentTerm, $this> */
     public function term(): BelongsTo
     {
         return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
+    /** @return BelongsToMany<BeritaAcara, $this> */
     public function beritaAcara(): BelongsToMany
     {
         return $this->belongsToMany(BeritaAcara::class, 'berita_acara_goods_receipt');
     }
 
+    /** @return BelongsTo<Pic, $this> */
     public function pic(): BelongsTo
     {
         return $this->belongsTo(Pic::class);

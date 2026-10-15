@@ -12,11 +12,13 @@ class BaRound extends Model
 
     protected $casts = ['sent_at' => 'date'];
 
+    /** @return BelongsTo<BeritaAcara, $this> */
     public function beritaAcara(): BelongsTo
     {
         return $this->belongsTo(BeritaAcara::class);
     }
 
+    /** @return HasMany<BaSignatory, $this> */
     public function signatories(): HasMany
     {
         return $this->hasMany(BaSignatory::class)->orderBy('id');

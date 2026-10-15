@@ -7,8 +7,11 @@ use App\Enums\InvoiceStatus;
 use App\Enums\Track;
 use App\Enums\VisitStatus;
 use App\Models\ContractAmendment;
-use App\Models\PaymentTerm;
+use App\Models\GoodsReceipt;
+use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PaymentTerm;
+use App\Models\Pic;
 use App\Models\Procurement;
 use App\Models\StageActivity;
 use App\Models\StageVisit;
@@ -16,6 +19,7 @@ use App\Models\TermPlanHistory;
 use App\Models\VendorContract;
 use App\Models\WorkflowTemplate;
 use App\Support\WorkdayCalendar as Cal;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -174,7 +178,9 @@ class WorkflowService
             VisitStatus::Returned => "Dikembalikan: {$reason}",
             default => "Tahap {$v->stage_name} dilewati".($reason ? ": {$reason}" : '').'.',
         };
-        $kind = match ($status) { VisitStatus::Done => 'selesai', VisitStatus::Returned => 'kembali', default => 'lewati' };
+        $kind = match ($status) {
+            VisitStatus::Done => 'selesai', VisitStatus::Returned => 'kembali', default => 'lewati'
+        };
         $this->activity($v, $date, $activity ?: (string) $v->activity, $note, $kind);
     }
 
@@ -197,6 +203,45 @@ class WorkflowService
             ]);
             $this->activity($v, $date, 'Lainnya', "Tahap {$s['name']} dilewati. {$v->note}", 'lewati');
         }
+    }
+
+    /** Kelompok tahap milik unit pengadaan. Pengadaan yang berhenti setelah masuk ke sini berstatus Gagal. */
+    public const PROCUREMENT_GROUPS = ['Manager Pengadaan', 'Perencana Pengadaan', 'Pelaksana Pengadaan', 'Partnership'];
+
+    /**
+     * Jenis penghentian yang berlaku saat ini: 'gagal' bila Proses Pengadaan pernah masuk unit pengadaan
+     * (Manager Pengadaan, Rendan, Lakdan, Partnership), selain itu 'batal' (masih di Pengaju, Sales atau Anggaran).
+     * Null bila tidak dapat dihentikan: sudah berhenti, atau SP2K/PO sudah rilis.
+     */
+    public static function stopTypeFor(Procurement $p): ?string
+    {
+        if ($p->cancelled_at || $p->contract()->exists()) {
+            return null;
+        }
+        $keys = collect($p->workflow ?? [])->filter(fn ($s) => in_array(self::groupOf($s), self::PROCUREMENT_GROUPS, true))->pluck('key')->all();
+        $entered = $keys && StageVisit::query()->where('procurement_id', $p->id)->where('track', Track::Pengadaan->value)
+            ->whereNull('amendment_id')->whereIn('stage_key', $keys)->exists();
+
+        return $entered ? 'gagal' : 'batal';
+    }
+
+    /**
+     * Hentikan pengadaan sebagai Dibatalkan atau Gagal (ditentukan sistem). Data tetap disimpan; tidak ada penghapusan.
+     * Tahap yang sedang berjalan dibiarkan apa adanya agar dapat diaktifkan kembali.
+     */
+    public function stop(Procurement $p, string $reason, ?string $date = null): string
+    {
+        $type = self::stopTypeFor($p);
+        if ($type === null) {
+            throw ValidationException::withMessages(['reason' => $p->cancelled_at
+                ? 'Pengadaan sudah dihentikan.'
+                : 'SP2K/PO sudah rilis; pengadaan tidak dapat dibatalkan atau dinyatakan gagal.']);
+        }
+        $label = $type === 'gagal' ? 'Gagal' : 'Dibatalkan';
+        $p->update(['cancelled_at' => $date ?? now(), 'cancel_type' => $type, 'cancel_reason' => trim($reason)]);
+        $this->audit->log($p->id, 'Pengadaan', $p->code, $type === 'gagal' ? 'Pengadaan gagal' : 'Batalkan pengadaan', 'Status', null, $label, $reason);
+
+        return $type;
     }
 
     /** Registrasi selesai: tahap aktif pertama dimulai pada tanggal registrasi. */
@@ -291,12 +336,12 @@ class WorkflowService
                         $errors[$k] = "{$label} wajib diisi untuk menyelesaikan Proses GR.";
                     }
                 }
-                if (! empty($d['gr_number']) && \App\Models\GoodsReceipt::query()->where('number', $d['gr_number'])->where('payment_term_id', '!=', $termId)->exists()) {
+                if (! empty($d['gr_number']) && GoodsReceipt::query()->where('number', $d['gr_number'])->where('payment_term_id', '!=', $termId)->exists()) {
                     $errors['gr_number'] = 'Nomor GR sudah dipakai tahap lain.';
                 }
             }
             if ($track === Track::Pasca && $v->stage_key === 'invoice' && $mode === 'complete' && ! empty($d['invoice_number'])
-                && \App\Models\Invoice::query()->where('number', $d['invoice_number'])->where('payment_term_id', '!=', $termId)->exists()) {
+                && Invoice::query()->where('number', $d['invoice_number'])->where('payment_term_id', '!=', $termId)->exists()) {
                 $errors['invoice_number'] = 'Nomor invoice sudah dipakai tahap lain.';
             }
             if ($errors) {
@@ -309,7 +354,7 @@ class WorkflowService
                 $v->entered_at = $entered;
             }
             if (array_key_exists('pic_id', $d) && (int) ($d['pic_id'] ?? 0) !== (int) $v->pic_id) {
-                $this->audit->log($p->id, 'Tahap', $v->id, 'Ganti PIC', "PIC {$v->stage_name}", $v->pic?->name, optional(\App\Models\Pic::query()->find($d['pic_id']))->name);
+                $this->audit->log($p->id, 'Tahap', $v->id, 'Ganti PIC', "PIC {$v->stage_name}", $v->pic?->name, optional(Pic::query()->find($d['pic_id']))->name);
                 $v->pic_id = $d['pic_id'] ?: null;
             }
             $v->save();
@@ -537,7 +582,7 @@ class WorkflowService
             $terms = collect($d['terms'])->values();
             $lastEnd = $terms->pluck('planned_end')->sort()->last();
             $vc = VendorContract::query()->create([
-                'procurement_id' => $p->id, 'kind' => $d['kind'], 'number' => trim($d['number']), 'title' => $d['title'],
+                'procurement_id' => $p->id, 'is_primary' => true, 'kind' => $d['kind'], 'number' => trim($d['number']), 'title' => $d['title'],
                 'vendor_id' => $d['vendor_id'], 'date' => $d['date'], 'kickoff_date' => $d['kickoff_date'], 'end_date' => $lastEnd,
                 'value_excl' => $d['value_excl'], 'value_incl' => $d['value_incl'], 'scope' => $d['scope'] ?? null, 'link' => $d['link'] ?? null,
             ]);
@@ -568,6 +613,36 @@ class WorkflowService
     }
 
     /**
+     * Catat Kontrak Pengadaan di samping SP2K/PO. Vendor mengikuti pemenang; tidak membentuk tahapan pembayaran
+     * dan tidak mengubah Cost (tetap dari SP2K/PO). Perubahan berikutnya lewat koreksi data atau amandemen.
+     *
+     * @param  array<string, mixed>  $d
+     */
+    public function saveWorkContract(Procurement $p, array $d): VendorContract
+    {
+        return DB::transaction(function () use ($p, $d) {
+            $main = $p->contract()->first();
+            if (! $main) {
+                throw ValidationException::withMessages(['number' => 'Kontrak Pengadaan dicatat setelah SP2K/PO rilis.']);
+            }
+            if ($p->workContract()->exists()) {
+                throw ValidationException::withMessages(['number' => 'Pengadaan ini sudah memiliki Kontrak Pengadaan. Gunakan koreksi data atau amandemen.']);
+            }
+            $vc = VendorContract::query()->create([
+                'procurement_id' => $p->id, 'is_primary' => false, 'kind' => VendorContract::WORK_KIND, 'number' => trim($d['number']),
+                'title' => $d['title'], 'vendor_id' => $main->vendor_id, 'date' => $d['date'], 'kickoff_date' => $d['kickoff_date'],
+                'end_date' => $d['end_date'] ?? null, 'value_excl' => $d['value_excl'], 'value_incl' => $d['value_incl'],
+                'scope' => $d['scope'] ?? null, 'link' => $d['link'] ?? null,
+            ]);
+            $this->audit->log($p->id, 'Kontrak Vendor', $vc->id, 'Kontrak Pengadaan dicatat', null, null,
+                "{$vc->number} · nilai ".number_format((float) $vc->value_incl, 0, ',', '.'));
+            $p->touch();
+
+            return $vc;
+        });
+    }
+
+    /**
      * Ajukan amandemen: Progres 1 dibuka kembali khusus untuk alur amandemen.
      *
      * @param  array<string, mixed>  $d
@@ -575,8 +650,14 @@ class WorkflowService
     public function startAmendment(Procurement $p, array $d): ContractAmendment
     {
         return DB::transaction(function () use ($p, $d) {
-            $vc = $p->contract()->firstOrFail();
-            if ($vc->amendments()->where('status', AmendmentStatus::Running->value)->exists()) {
+            // Amandemen dapat diajukan untuk SP2K/PO maupun Kontrak Pengadaan; bawaan SP2K/PO.
+            $vc = ! empty($d['contract_id'])
+                ? VendorContract::query()->where('procurement_id', $p->id)->findOrFail($d['contract_id'])
+                : $p->contract()->firstOrFail();
+            // Hanya satu amandemen berjalan per pengadaan karena keduanya memakai alur Proses Pengadaan yang sama.
+            $running = ContractAmendment::query()->where('status', AmendmentStatus::Running->value)
+                ->whereIn('vendor_contract_id', VendorContract::query()->where('procurement_id', $p->id)->select('id'))->exists();
+            if ($running) {
                 throw ValidationException::withMessages(['reason' => 'Masih ada amandemen yang sedang berjalan.']);
             }
             $order = array_column($p->workflow, 'key');
@@ -606,7 +687,7 @@ class WorkflowService
             $vc = $am->contract;
             $types = $d['change_types'];
             $rp = fn ($v) => 'Rp'.number_format((float) $v, 0, ',', '.');
-            $tgl = fn ($v) => $v ? \Illuminate\Support\Carbon::parse($v)->translatedFormat('d M Y') : '-';
+            $tgl = fn ($v) => $v ? Carbon::parse($v)->translatedFormat('d M Y') : '-';
             // [kolom kontrak, label, nilai lama, nilai baru, format tampilan]
             $fields = [];
             if (in_array('Nilai', $types, true)) {

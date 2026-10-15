@@ -11,6 +11,7 @@ class RabItem extends Model
 
     protected $casts = ['qty' => 'decimal:2', 'price' => 'decimal:2'];
 
+    /** @return BelongsTo<BudgetCode, $this> */
     public function budgetCode(): BelongsTo
     {
         return $this->belongsTo(BudgetCode::class);

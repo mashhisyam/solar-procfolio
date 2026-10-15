@@ -27,6 +27,7 @@ class BudgetCode extends Model
             ->pluck('used', 'id')->map(fn ($v) => (float) $v)->all();
     }
 
+    /** @return BelongsToMany<Procurement, $this> */
     public function procurements(): BelongsToMany
     {
         return $this->belongsToMany(Procurement::class);

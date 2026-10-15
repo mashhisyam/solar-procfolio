@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { Pencil, Plus, Save } from 'lucide-react';
 import { Badge, Button, Card, CardHead, EmptyState, Field, Input, KV, LinkButton, LinkField, Modal, Textarea, cx } from '@/Components/ui';
-import { PageHeader, ProcTable } from '@/Components/common';
+import { PageHeader, PagedProcTable } from '@/Components/common';
 import { fmtDate } from '@/lib/format';
 import type { PageProps, ProcRow } from '@/types';
 import { PksModal, PksRow } from './Index';
@@ -24,7 +24,7 @@ export default function PksShow({ pks, rows, parts, partners }: { pks: PksRow & 
             {a.description && <p className="mt-1">{a.description}</p>}
           </li>))}</ol>
       </Card>
-      <Card><CardHead title="Pengadaan Kemitraan terkait" />{rows.length ? <ProcTable rows={rows} /> : <EmptyState compact title="Belum ada pengadaan yang merujuk PKS ini" />}</Card>
+      <Card><CardHead title="Pengadaan Kemitraan terkait" />{rows.length ? <PagedProcTable rows={rows} /> : <EmptyState compact title="Belum ada pengadaan yang merujuk PKS ini" />}</Card>
       <PksModal open={edit} onClose={() => setEdit(false)} item={pks} partners={partners} />
       <Modal open={amd} onClose={() => setAmd(false)} width="max-w-2xl" title="Tambah amandemen PKS" footer={<><Button onClick={() => setAmd(false)}>Batal</Button><Button variant="primary" icon={Save} disabled={form.processing} onClick={() => form.post(`/pks/${pks.id}/amandemen`, { onSuccess: () => setAmd(false) })}>Simpan</Button></>}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

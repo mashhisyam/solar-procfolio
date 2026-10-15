@@ -4,7 +4,8 @@ import { RefreshCw, Pencil, FileSignature, FilePlus2, Ban, RotateCcw, ChevronDow
 import { Badge, Button, Card, CardHead, EmptyState, Field, Input, KV, LinkButton, LinkField, Menu, Modal, Select, TableWrap, Tabs, cx, td, th } from '@/Components/ui';
 import { AlertList, DeadlinePill, DurationPill, PageHeader, PriorityBadge, StatusBadge, Stepper } from '@/Components/common';
 import UpdateProcessDrawer, { Mode } from '@/Components/procurement/UpdateProcessDrawer';
-import { AmendmentReleaseModal, AmendmentRequestModal, CancelModal, ContractEditModal, ReleaseContractModal } from '@/Components/procurement/ContractModals';
+import { AmendmentReleaseModal, AmendmentRequestModal, CancelModal, ContractEditModal, ReleaseContractModal, WorkContractModal } from '@/Components/procurement/ContractModals';
+import { Pager, usePaged } from '@/Components/Pagination';
 import { DocModal, GrDrawer, InvoiceDrawer, TermModal } from '@/Components/procurement/SettlementForms';
 import { fmtDate, fmtDateTime, rp } from '@/lib/format';
 import type { Alert, BaSummary, CurrentVisit, HistoryVisit, PageProps, Pic, ProcRow, StageDef, StepNode, Term } from '@/types';
@@ -13,8 +14,8 @@ type Doc = { id: number; doc_type: string; number: string | null; title: string 
 interface Props {
   procurement: {
     code: string; spp_number: string | null; spp_date: string | null; title: string; summary: string | null; method: 'SPP Pusat' | 'SPP Kemitraan'; proc_type: string | null; category: string | null; proc_method: string | null;
-    priority: 'Normal' | 'Urgent'; sub_bidang: string | null; pengaju_name: string; registered_at: string; rab_value: number; is_draft: boolean; cancelled: boolean; cancel_reason: string | null;
-    status: string; post_state: string; process_days: number; last_update: string; last_update_days: number; bak_number: string | null; bak_date: string | null; work_contract: { number: string; date: string | null; link: string | null } | null;
+    priority: 'Normal' | 'Urgent'; sub_bidang: string | null; pengaju_name: string; registered_at: string; rab_value: number; is_draft: boolean; cancelled: boolean; cancel_reason: string | null; cancel_type: 'batal' | 'gagal' | null; cancelled_at: string | null; stop_option: 'batal' | 'gagal' | null;
+    status: string; post_state: string; process_days: number; last_update: string; last_update_days: number; bak_number: string | null; bak_date: string | null; pa_number: string | null;
     pks: { id: number; number: string; title: string; partner: string | null; label: string; end_date: string | null; future: number } | null;
     candidate_vendors: { id: number; name: string }[]; vendor_id: number | null;
     budget_codes: { id: number; coa: string; cost_center: string; code: string; program: string; klasifikasi: string }[];
@@ -24,9 +25,10 @@ interface Props {
   header: ProcRow; alerts: Alert[];
   approval: { nodes: StepNode[]; history: HistoryVisit[]; current: CurrentVisit | null; stages: StageDef[]; all_stages: StageDef[]; locked: boolean; can_reopen: boolean; cycle: number; resume_stage: string | null };
   all_documents: { source: string; type: string; number: string | null; date: string | null; link: string | null; info: string | null; href: string | null; doc_id: number | null }[];
-  amendment: { id: number; seq: number; reason: string; proposal: string | null; change_types: string[]; nodes: StepNode[] } | null;
-  contract: { id: number; kind: string; number: string; title: string; vendor: string | null; vendor_id: number; date: string | null; kickoff_date: string | null; end_date: string | null; value_excl: number; value_incl: number; scope: string | null; link: string | null;
+  amendment: { id: number; seq: number; reason: string; proposal: string | null; change_types: string[]; contract_id: number; contract_kind: string | null; contract_number: string | null; nodes: StepNode[] } | null;
+  contract: { id: number; is_primary: boolean; kind: string; number: string; title: string; vendor: string | null; vendor_id: number; date: string | null; kickoff_date: string | null; end_date: string | null; value_excl: number; value_incl: number; scope: string | null; link: string | null;
     amendments: { id: number; seq: number; status: string; reason: string; requested_at: string | null; number: string | null; date: string | null; change_types: string[]; description: string | null; before: Record<string, unknown> | null; after: Record<string, unknown> | null; proposal: string | null; link: string | null }[] } | null;
+  work_contract: Props['contract'];
   terms: Term[]; pasca_stages: StageDef[]; documents: Doc[]; bas: BaSummary[];
   history: { at: string; user: string | null; entity: string; action: string; field: string | null; old: string | null; new: string | null; reason: string | null }[];
   options: { pics: Pic[]; activities: string[]; gr_types: string[]; contract_types: string[]; ba_types: string[]; change_types: string[]; invoice_statuses: string[]; gr_statuses: string[]; checklist: Record<string, string> };
@@ -34,16 +36,21 @@ interface Props {
 const TABS = ['ringkasan', 'proses', 'dokumen', 'kontrak', 'pasca', 'riwayat'] as const;
 
 export default function ProcurementShow(props: Props) {
-  const { procurement: p, header: h, alerts, approval, amendment, contract, terms, documents, bas, history, options: o } = props;
+  const { procurement: p, header: h, alerts, approval, amendment, contract, work_contract: work, terms, documents, bas, history, options: o } = props;
   const { auth, flash } = usePage<PageProps>().props;
   const can = auth.can.edit && !p.cancelled;
   const [tab, setTab] = useState<string>(() => { const t = new URLSearchParams(window.location.search).get('tab') || 'ringkasan'; return (TABS as readonly string[]).includes(t) ? t : 'ringkasan'; });
   const [drawer, setDrawer] = useState<{ open: boolean; track: 'pengadaan' | 'pasca'; termId?: number; mode: Mode }>({ open: false, track: 'pengadaan', mode: 'update' });
-  const [modal, setModal] = useState<'' | 'contract' | 'editContract' | 'amendReq' | 'amendRel' | 'cancel'>('');
+  const [modal, setModal] = useState<'' | 'contract' | 'workContract' | 'amendRel' | 'cancel'>('');
+  // Kontrak yang sedang dikoreksi atau diajukan amandemen: SP2K/PO atau Kontrak Pengadaan.
+  const [editTarget, setEditTarget] = useState<Props['contract']>(null);
+  const [amendTarget, setAmendTarget] = useState<Props['contract']>(null);
+  const amendContract = amendment ? (work && amendment.contract_id === work.id ? work : contract) : null;
+  const docPg = usePaged(props.all_documents, '', 25);
+  const histPg = usePaged(history, '', 25);
   const [grTerm, setGrTerm] = useState<Term | null>(null); const [invTerm, setInvTerm] = useState<Term | null>(null);
   const [termModal, setTermModal] = useState<{ open: boolean; term: Term | null }>({ open: false, term: null });
   const [docModal, setDocModal] = useState<{ open: boolean; doc: Doc | null }>({ open: false, doc: null });
-  const [workContract, setWorkContract] = useState(false);
   useEffect(() => { if (flash.next?.type === 'contract') setModal('contract'); if (flash.next?.type === 'amendment-release') setModal('amendRel'); }, [flash]);
   const go = (t: string) => { setTab(t); window.history.replaceState({}, '', `?tab=${t}`); };
   const finalLabel = amendment ? 'rilis amandemen' : `rilis ${p.method === 'SPP Pusat' ? 'SP2K' : 'PO'}`;
@@ -56,14 +63,16 @@ export default function ProcurementShow(props: Props) {
     <>
       <Head title={p.spp_number || p.code} />
       <PageHeader crumbs={[['Dashboard', '/'], ['Daftar Pengadaan', '/pengadaan'], [p.spp_number || p.code]]}
-        title={<span className="block"><span className="mb-1.5 flex flex-wrap items-center gap-2 text-[13px] font-normal"><span className="num rounded-lg bg-navy px-2.5 py-1 text-[14px] font-extrabold text-white" title={p.method === 'SPP Pusat' ? 'Nomor SPP' : 'Nomor pengajuan'}>{p.spp_number || '–'}</span><span className="num rounded-md border border-line px-1.5 py-0.5 text-[11.5px] font-semibold text-mute" title="ID monitoring">{p.code}</span>{p.proc_method && <span className="text-mute">{p.proc_method}</span>}<Badge tone={p.method === 'SPP Pusat' ? 'navy' : 'teal'}>{p.method}</Badge><PriorityBadge p={p.priority} /><StatusBadge status={p.status} /></span>{p.title}</span>}
+        title={<span className="block"><span className="mb-1.5 flex flex-wrap items-center gap-2 text-[13px] font-normal"><span className="num rounded-lg bg-navy px-2.5 py-1 text-[14px] font-extrabold text-white" title={p.method === 'SPP Pusat' ? 'Nomor SPP' : 'Nomor pengajuan'}>{p.spp_number || '–'}
+        </span>{p.proc_method && <span className="text-mute">{p.proc_method}</span>}<Badge tone={p.method === 'SPP Pusat' ? 'navy' : 'teal'}>{p.method}</Badge><PriorityBadge p={p.priority} /></span>{p.title}</span>}
         actions={can && <>
           {!p.is_draft && <Button variant="primary" icon={RefreshCw} onClick={() => (approval.current ? openUpdate('pengadaan') : focusTerm ? openUpdate('pasca', focusTerm.id) : openUpdate('pengadaan'))}>Update Proses</Button>}
           <Link href={`/pengadaan/${p.code}/edit`}><Button icon={Pencil}>Edit</Button></Link>
           <Menu items={[
-            contract ? { label: `Ajukan amandemen ${contract.kind}`, icon: FileSignature, onClick: () => setModal('amendReq'), disabled: !!amendment } : { label: `Rilis ${p.method === 'SPP Pusat' ? 'SP2K' : 'PO'}`, icon: FileSignature, onClick: () => setModal('contract'), disabled: p.is_draft },
+            contract ? { label: `Ajukan amandemen ${contract.kind}`, icon: FileSignature, onClick: () => setAmendTarget(contract), disabled: !!amendment } : { label: `Rilis ${p.method === 'SPP Pusat' ? 'SP2K' : 'PO'}`, icon: FileSignature, onClick: () => setModal('contract'), disabled: p.is_draft },
+            ...(contract ? [work ? { label: 'Ajukan amandemen Kontrak Pengadaan', icon: ScrollText, onClick: () => setAmendTarget(work), disabled: !!amendment } : { label: 'Catat Kontrak Pengadaan', icon: ScrollText, onClick: () => setModal('workContract') }] : []),
             { label: 'Tambah Berita Acara', icon: FilePlus2, onClick: () => router.visit(`/pengadaan/${p.code}/ba/baru`), disabled: !contract },
-            p.cancelled ? { label: 'Aktifkan kembali', icon: RotateCcw, onClick: () => router.post(`/pengadaan/${p.code}/aktifkan`) } : { label: 'Batalkan pengadaan', icon: Ban, onClick: () => setModal('cancel'), danger: true },
+            ...(p.stop_option ? [{ label: p.stop_option === 'gagal' ? 'Nyatakan pengadaan gagal' : 'Batalkan pengadaan', icon: Ban, onClick: () => setModal('cancel'), danger: true }] : []),
           ]} />
         </>} />
 
@@ -80,14 +89,20 @@ export default function ProcurementShow(props: Props) {
       </Card>
 
       {p.is_draft && <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-info/30 bg-infosoft px-4 py-3 text-[13px]"><Info size={16} className="text-info" />Masih <b>Draft</b>. Monitoring belum berjalan sampai registrasi disimpan.<Link href={`/pengadaan/${p.code}/edit`} className="ml-auto"><Button size="sm" variant="primary" icon={Pencil}>Lengkapi registrasi</Button></Link></div>}
-      {p.cancelled && <div className="mb-5 rounded-xl border border-line bg-sunken px-4 py-3 text-[13px]"><b>Dibatalkan.</b> {p.cancel_reason}</div>}
+      {p.cancelled && (
+        <div className={cx('mb-5 flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-[13px]', p.cancel_type === 'gagal' ? 'border-bad/30 bg-badsoft' : 'border-line bg-sunken')}>
+          <Ban size={16} className={p.cancel_type === 'gagal' ? 'text-bad' : 'text-mute'} />
+          <span><b>{p.cancel_type === 'gagal' ? 'Pengadaan Gagal' : 'Pengadaan Dibatalkan'}</b> sejak {fmtDate(p.cancelled_at)}{h.stage ? ` · posisi terakhir ${h.stage}` : ''}. Alasan: {p.cancel_reason || '–'}</span>
+          {auth.can.edit && <Button size="sm" className="ml-auto" icon={RotateCcw} onClick={() => router.post(`/pengadaan/${p.code}/aktifkan`, {}, { preserveScroll: true })}>Aktifkan kembali</Button>}
+        </div>
+      )}
 
-      {!p.is_draft && <ProgressPanel {...props} can={can} onUpdate={openUpdate} onModal={setModal} onTab={go} />}
+      {!p.is_draft && <ProgressPanel {...props} can={can} onUpdate={openUpdate} onModal={setModal} onAmend={() => contract && setAmendTarget(contract)} onTab={go} />}
 
       <Tabs className="mb-5" value={tab} onChange={go} tabs={[
         { key: 'ringkasan', label: 'Ringkasan', dot: alerts.length > 0 }, { key: 'proses', label: 'Histori Proses Pengadaan', count: approval.history.filter((x) => x.status !== 'Dilewati').length },
         { key: 'dokumen', label: 'Dokumen', count: props.all_documents.length },
-        { key: 'kontrak', label: 'Kontrak & SP2K', count: (contract ? 1 : 0) + (p.work_contract ? 1 : 0) }, { key: 'pasca', label: 'Pasca Pengadaan', count: terms.length }, { key: 'riwayat', label: 'Riwayat Perubahan', count: history.length },
+        { key: 'kontrak', label: `${p.method === 'SPP Pusat' ? 'SP2K' : 'PO'} & Kontrak Pengadaan`, count: (contract ? 1 : 0) + (work ? 1 : 0) }, { key: 'pasca', label: 'Pasca Pengadaan', count: terms.length }, { key: 'riwayat', label: 'Riwayat Perubahan', count: history.length },
       ]} />
 
       {tab === 'ringkasan' && (
@@ -116,7 +131,8 @@ export default function ProcurementShow(props: Props) {
             <Card>
               <CardHead icon={Handshake} title="Referensi" />
               <div className="space-y-4 p-5 text-[13px]">
-                <div><p className="mb-1.5 text-[12px] font-medium text-mute">Perjanjian pelanggan ({p.customer_contracts.length})</p>{p.customer_contracts.length ? p.customer_contracts.map((c) => <Link key={c.id} href={`/bakb/${c.id}`} className="mb-1.5 block rounded-lg border border-line px-3 py-2 hover:border-brand"><span className="flex flex-wrap items-center gap-1.5"><Badge tone={c.kind.startsWith('Berita Acara') ? 'navy' : c.kind === 'Kontrak Perjanjian' ? 'brand' : c.kind === 'Surat Penugasan' ? 'teal' : 'outline'}>{c.kind}</Badge><span className="num font-bold text-brand">{c.number}</span></span><span className="block text-[12px] text-mute">{c.title} · {c.customer}</span></Link>) : <p className="text-warn">Belum ada perjanjian pelanggan.</p>}</div>
+                <div><p className="mb-1.5 text-[12px] font-medium text-mute">Perjanjian pelanggan ({p.customer_contracts.length})</p>{p.customer_contracts.length ? p.customer_contracts.map((c) => <Link key={c.id} href={`/bakb/${c.id}`} className="mb-1.5 block rounded-lg border border-line px-3 py-2 hover:border-brand"><span className="flex flex-wrap items-center gap-1.5"><Badge tone={c.kind.startsWith('Berita Acara') ? 'navy' : c.kind === 'Kontrak Perjanjian' ? 'brand' : c.kind === 'Surat Penugasan' ? 'teal' : 'outline'}>{c.kind}</Badge><span className="num font-bold text-brand">{c.number}</span></span><span className="block text-[12px] text-mute">{c.title} · {c.customer}</span></Link>) : <p className={p.pa_number ? 'text-mute' : 'text-warn'}>{p.pa_number ? 'Tidak ada; merujuk nomor PA.' : 'Belum ada perjanjian pelanggan atau nomor PA.'}</p>}</div>
+                {p.pa_number && <div className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2"><span><b>PA (Project Activation)</b> <span className="num text-mute">{p.pa_number}</span></span></div>}
                 {documents.filter((d) => d.doc_type === 'Surat Penugasan').map((d) => <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2"><span><b>{d.doc_type}</b> <span className="num text-mute">{d.number}</span></span><LinkButton url={d.link} label="Buka" /></div>)}
                 {p.method === 'SPP Kemitraan' && <div><p className="mb-1.5 text-[12px] font-medium text-mute">PKS & BAK</p>{p.pks ? <Link href={`/pks/${p.pks.id}`} className="block rounded-lg border border-line px-3 py-2 hover:border-brand"><span className="flex items-center gap-2"><ScrollText size={14} className="text-brand" /><span className="num font-bold text-brand">{p.pks.number}</span></span><span className="block text-[12px]">Versi efektif: <b>{p.pks.label}</b></span></Link> : <p className="text-warn">PKS belum dipilih.</p>}<p className="mt-2">BAK: <b className="num">{p.bak_number || '–'}</b> {p.bak_date && <span className="text-mute">· {fmtDate(p.bak_date)}</span>}</p></div>}
               </div>
@@ -132,18 +148,18 @@ export default function ProcurementShow(props: Props) {
       {tab === 'proses' && (
         <Card>
           <CardHead title="Histori Proses Pengadaan" desc={approval.locked ? `Terkunci sejak ${contract?.kind} ${contract?.number} rilis. Perubahan hanya melalui amandemen.` : undefined}
-            actions={can && (approval.current ? <><Button size="sm" variant="primary" icon={RefreshCw} onClick={() => openUpdate('pengadaan')}>Update Proses</Button><Button size="sm" className="!border-warn/50 !text-warn" onClick={() => openUpdate('pengadaan', undefined, 'rev_minor')}>Rev Minor</Button><Button size="sm" className="!border-bad/50 !text-bad" onClick={() => openUpdate('pengadaan', undefined, 'rev_major')}>Rev Mayor</Button></> : approval.can_reopen ? <ReopenControl code={p.code} stages={approval.all_stages} /> : approval.locked && !amendment ? <Button size="sm" icon={FileSignature} onClick={() => setModal('amendReq')}>Ajukan Amandemen</Button> : undefined)} />
+            actions={can && (approval.current ? <><Button size="sm" variant="primary" icon={RefreshCw} onClick={() => openUpdate('pengadaan')}>Update Proses</Button><Button size="sm" className="!border-warn/50 !text-warn" onClick={() => openUpdate('pengadaan', undefined, 'rev_minor')}>Rev Minor</Button><Button size="sm" className="!border-bad/50 !text-bad" onClick={() => openUpdate('pengadaan', undefined, 'rev_major')}>Rev Mayor</Button></> : approval.can_reopen ? <ReopenControl code={p.code} stages={approval.all_stages} /> : approval.locked && !amendment && contract ? <Button size="sm" icon={FileSignature} onClick={() => setAmendTarget(contract)}>Ajukan Amandemen</Button> : undefined)} />
           <History visits={approval.history} />
         </Card>
       )}
 
       {tab === 'dokumen' && (
         <Card>
-          <CardHead title="Seluruh dokumen pengadaan" desc="Dokumen pengadaan, perjanjian pelanggan, kontrak, Berita Acara, GR, dan invoice yang terkait pengadaan ini."
+          <CardHead title="Seluruh dokumen pengadaan"
             actions={can && <Button size="sm" icon={Plus} onClick={() => setDocModal({ open: true, doc: null })}>Tambah dokumen</Button>} />
           {props.all_documents.length === 0 ? <EmptyState compact icon={FileStack} title="Belum ada dokumen" /> : (
             <TableWrap><thead><tr>{['Sumber', 'Jenis', 'Nomor', 'Tanggal', 'Keterangan', 'Tautan', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-              <tbody>{props.all_documents.map((d, k) => {
+              <tbody>{docPg.view.map((d, k) => {
                 const doc = d.doc_id ? documents.find((x) => x.id === d.doc_id) : null;
                 return (
                   <tr key={k}>
@@ -159,35 +175,23 @@ export default function ProcurementShow(props: Props) {
               })}</tbody>
             </TableWrap>
           )}
+          <Pager p={docPg} label="dokumen" />
         </Card>
       )}
 
       {tab === 'kontrak' && (contract ? (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_360px]">
-          <Card className="xl:col-span-2">
-            <CardHead icon={ScrollText} title="Kontrak perjanjian pelaksanaan pekerjaan" desc="Sebagian pekerjaan memiliki kontrak perjanjian di samping SP2K/PO."
-              actions={can && <Button size="sm" icon={p.work_contract ? Pencil : Plus} onClick={() => setWorkContract(true)}>{p.work_contract ? 'Ubah kontrak' : 'Upload kontrak perjanjian'}</Button>} />
-            {p.work_contract ? <div className="p-5"><KV cols={3} items={[['Nomor kontrak', <span key="n" className="num font-bold">{p.work_contract.number}</span>], ['Tanggal kontrak', fmtDate(p.work_contract.date)], ['Dokumen', <LinkButton key="l" url={p.work_contract.link} label="Buka kontrak" />]]} /></div>
-              : <p className="px-5 pb-5 text-[13px] text-mute">Belum ada kontrak perjanjian. Pekerjaan yang hanya memakai SP2K/PO dapat melewati bagian ini.</p>}
-          </Card>
-          <Card>
-            <CardHead icon={FileSignature} title={`${contract.kind} ${contract.number}`} desc={contract.vendor || undefined} actions={<><LinkButton url={contract.link} label={`Buka ${contract.kind}`} size="sm" />{can && <Button size="sm" icon={Pencil} onClick={() => setModal('editContract')}>Koreksi data</Button>}{can && !amendment && <Button size="sm" variant="primary" icon={Plus} onClick={() => setModal('amendReq')}>Ajukan Amandemen</Button>}<Link href={`/kontrak/${contract.id}`}><Button size="sm" variant="ghost">Halaman kontrak</Button></Link></>} />
-            <div className="p-5"><KV cols={3} items={[['Judul pekerjaan', contract.title], ['Vendor / mitra', contract.vendor || '–'], ['Tanggal kontrak', fmtDate(contract.date)], ['Nilai sebelum PPN', rp(contract.value_excl)], ['Nilai setelah PPN', rp(contract.value_incl)], ['Mulai – rencana selesai', `${fmtDate(contract.kickoff_date)} – ${fmtDate(contract.end_date)}`], ['Ruang lingkup', contract.scope || '–']]} /></div>
-            <div className="border-t border-line p-5"><p className="mb-3 text-[13.5px] font-bold">Amandemen ({contract.amendments.length})</p>
-              {contract.amendments.length === 0 ? <p className="text-[13px] text-mute">Belum ada amandemen.</p> : contract.amendments.map((a) => (
-                <div key={a.id} className={cx('mb-3 rounded-lg border p-3 text-[13px] last:mb-0', a.status === 'Dalam Proses' ? 'border-warn/40 bg-warnsoft/40' : 'border-line')}>
-                  <div className="flex flex-wrap items-center gap-2"><b>Amandemen {a.seq}</b><StatusBadge status={a.status === 'Dalam Proses' ? 'Dalam Proses' : a.status} />{a.number && <span className="num font-semibold">{a.number}</span>}<span className="text-mute">{a.date ? fmtDate(a.date) : `diajukan ${fmtDate(a.requested_at)}`}</span>{a.change_types.map((t) => <Badge key={t} tone="outline">{t}</Badge>)}{a.link && <LinkButton url={a.link} label="Buka" />}</div>
-                  <p className="mt-1">{a.description || a.reason}</p>
-                  {a.after && Object.keys(a.after).length > 0 && <p className="mt-1 text-[12.5px] text-mute">{Object.entries(a.after).map(([k, v]) => `${k}: ${String((a.before || {})[k] ?? '–')} → ${String(v)}`).join(' · ')}</p>}
-                </div>))}
-            </div>
-          </Card>
+          <div className="space-y-5">
+            <ContractCard c={contract} can={can} amendmentRunning={!!amendment} onEdit={() => setEditTarget(contract)} onAmend={() => setAmendTarget(contract)} />
+            {work ? <ContractCard c={work} can={can} amendmentRunning={!!amendment} onEdit={() => setEditTarget(work)} onAmend={() => setAmendTarget(work)} />
+              : <Card><EmptyState compact icon={ScrollText} title="Kontrak Pengadaan belum dicatat" desc={`Pekerjaan yang hanya memakai ${contract.kind} dapat melewati bagian ini.`} action={can && <Button size="sm" variant="primary" icon={Plus} onClick={() => setModal('workContract')}>Catat Kontrak Pengadaan</Button>} /></Card>}
+          </div>
           <Card className="self-start">
-            <CardHead title="Tahapan pembayaran" desc={`Mulai ${fmtDate(contract.kickoff_date)} · selesai ${fmtDate(contract.end_date)}`} actions={can && <Button size="xs" icon={Plus} onClick={() => setTermModal({ open: true, term: null })}>Tambah</Button>} />
+            <CardHead title="Tahapan pembayaran" desc={`Mengikuti ${contract.kind} · mulai ${fmtDate(contract.kickoff_date)} · selesai ${fmtDate(contract.end_date)}`} actions={can && <Button size="xs" icon={Plus} onClick={() => setTermModal({ open: true, term: null })}>Tambah</Button>} />
             <ul className="divide-y divide-line">{terms.map((t) => <li key={t.id} className="px-4 py-2.5 text-[13px]"><div className="flex items-start justify-between gap-2"><b>Tahap {t.seq} · {t.name}</b><span className="num whitespace-nowrap font-semibold">{t.percent ? `${t.percent}%` : rp(t.amount)}</span></div><div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-mute"><span className="flex items-center gap-1.5">Rencana selesai {fmtDate(t.planned_end)}{!t.paid_at && <DeadlinePill date={t.planned_end} />}</span>{can && <button className="font-semibold text-brand" onClick={() => setTermModal({ open: true, term: t })}>Ubah</button>}</div></li>)}</ul>
           </Card>
         </div>
-      ) : <Card><EmptyState icon={FileSignature} title={`${p.method === 'SPP Pusat' ? 'SP2K' : 'PO'} belum dirilis`} desc="Rilis kontrak setelah Proses Pengadaan selesai, beserta tahapan pembayarannya." action={can && !p.is_draft && <Button variant="primary" icon={FileSignature} onClick={() => setModal('contract')}>Rilis {p.method === 'SPP Pusat' ? 'SP2K' : 'PO'}</Button>} /></Card>)}
+      ) : <Card><EmptyState icon={FileSignature} title={`${p.method === 'SPP Pusat' ? 'SP2K' : 'PO'} belum dirilis`} desc="Rilis kontrak setelah Proses Pengadaan selesai, beserta tahapan pembayarannya. Kontrak Pengadaan dapat dicatat setelahnya." action={can && !p.is_draft && <Button variant="primary" icon={FileSignature} onClick={() => setModal('contract')}>Rilis {p.method === 'SPP Pusat' ? 'SP2K' : 'PO'}</Button>} /></Card>)}
 
       {tab === 'pasca' && (
         <div className="space-y-5">
@@ -205,9 +209,10 @@ export default function ProcurementShow(props: Props) {
       )}
 
       {tab === 'riwayat' && (
-        <Card><CardHead title="Riwayat perubahan" desc="Audit log append-only: siapa, kapan, nilai lama, nilai baru dan alasan." />
+        <Card><CardHead title="Riwayat perubahan"/>
           {history.length === 0 ? <EmptyState compact title="Belum ada perubahan" /> : <TableWrap><thead><tr>{['Waktu', 'Pengguna', 'Entitas', 'Aksi', 'Field', 'Lama', 'Baru', 'Alasan'].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-            <tbody>{history.map((a, i) => <tr key={i}><td className={cx(td, 'whitespace-nowrap')}>{fmtDateTime(a.at)}</td><td className={td}>{a.user || 'Sistem'}</td><td className={td}>{a.entity}</td><td className={cx(td, 'font-semibold')}>{a.action}</td><td className={td}>{a.field || '–'}</td><td className={cx(td, 'max-w-[220px] text-mute')}>{a.old || '–'}</td><td className={cx(td, 'max-w-[220px]')}>{a.new || '–'}</td><td className={cx(td, 'max-w-[220px] text-mute')}>{a.reason || '–'}</td></tr>)}</tbody></TableWrap>}
+            <tbody>{histPg.view.map((a, i) => <tr key={i}><td className={cx(td, 'whitespace-nowrap')}>{fmtDateTime(a.at)}</td><td className={td}>{a.user || 'Sistem'}</td><td className={td}>{a.entity}</td><td className={cx(td, 'font-semibold')}>{a.action}</td><td className={td}>{a.field || '–'}</td><td className={cx(td, 'max-w-[220px] text-mute')}>{a.old || '–'}</td><td className={cx(td, 'max-w-[220px]')}>{a.new || '–'}</td><td className={cx(td, 'max-w-[220px] text-mute')}>{a.reason || '–'}</td></tr>)}</tbody></TableWrap>}
+          <Pager p={histPg} label="perubahan" />
         </Card>
       )}
 
@@ -215,20 +220,20 @@ export default function ProcurementShow(props: Props) {
         current={drawer.track === 'pasca' ? drawerTerm?.current || null : approval.current} stages={drawer.track === 'pasca' ? props.pasca_stages : approval.stages}
         pics={o.pics} activities={o.activities} finalLabel={finalLabel} initialMode={drawer.mode} grTypes={o.gr_types} />
       <ReleaseContractModal open={modal === 'contract'} onClose={() => setModal('')} code={p.code} method={p.method} title={p.title} candidates={p.candidate_vendors} rab={p.rab_value} contractTypes={o.contract_types} runningStage={approval.current && !approval.current.amendment_id ? approval.current.stage : null} />
-      {contract && <ContractEditModal open={modal === 'editContract'} onClose={() => setModal('')} contract={contract} />}
-      {contract && <AmendmentRequestModal open={modal === 'amendReq'} onClose={() => setModal('')} code={p.code} kind={contract.kind} number={contract.number} stages={approval.all_stages} />}
-      <AmendmentReleaseModal open={modal === 'amendRel'} onClose={() => setModal('')} code={p.code} amendment={amendment} contract={contract} />
-      <CancelModal open={modal === 'cancel'} onClose={() => setModal('')} code={p.code} />
+      {editTarget && <ContractEditModal open onClose={() => setEditTarget(null)} contract={editTarget} />}
+      {amendTarget && <AmendmentRequestModal open onClose={() => setAmendTarget(null)} code={p.code} contractId={amendTarget.is_primary ? null : amendTarget.id} kind={amendTarget.kind} number={amendTarget.number} stages={approval.all_stages} />}
+      {contract && !work && <WorkContractModal open={modal === 'workContract'} onClose={() => setModal('')} code={p.code} base={contract} />}
+      <AmendmentReleaseModal open={modal === 'amendRel'} onClose={() => setModal('')} code={p.code} amendment={amendment} contract={amendContract} />
+      {p.stop_option && <CancelModal open={modal === 'cancel'} onClose={() => setModal('')} code={p.code} type={p.stop_option} />}
       <GrDrawer open={!!grTerm} onClose={() => setGrTerm(null)} code={p.code} term={grTerm} bas={bas} pics={o.pics} statuses={o.gr_statuses} />
       <InvoiceDrawer open={!!invTerm} onClose={() => setInvTerm(null)} code={p.code} term={invTerm} pics={o.pics} checklistLabels={o.checklist} />
       <TermModal open={termModal.open} onClose={() => setTermModal({ open: false, term: null })} code={p.code} term={termModal.term} bas={bas} />
-      <WorkContractModal open={workContract} onClose={() => setWorkContract(false)} code={p.code} value={p.work_contract} />
       <DocModal open={docModal.open} onClose={() => setDocModal({ open: false, doc: null })} code={p.code} doc={docModal.doc} docTypes={['TOR', 'BCR (Benefit Cost Ratio)', 'BAK', 'SPH', 'Form Justifikasi Anggaran', 'BAKB', 'RKS', 'Lainnya']} />
     </>
   );
 }
 
-function ProgressPanel({ procurement: p, approval, amendment, contract, terms, bas, can, onUpdate, onModal, onTab }: Props & { can: boolean; onUpdate: (t: 'pengadaan' | 'pasca', termId?: number) => void; onModal: (m: 'contract' | 'amendReq' | 'amendRel') => void; onTab: (t: string) => void }) {
+function ProgressPanel({ procurement: p, approval, amendment, contract, terms, bas, can, onUpdate, onModal, onAmend, onTab }: Props & { can: boolean; onUpdate: (t: 'pengadaan' | 'pasca', termId?: number) => void; onModal: (m: 'contract' | 'amendRel') => void; onAmend: () => void; onTab: (t: string) => void }) {
   const cur = approval.current;
   const orig = cur && !cur.amendment_id ? cur : null;
   const paid = terms.filter((t) => t.paid_at).length;
@@ -243,12 +248,12 @@ function ProgressPanel({ procurement: p, approval, amendment, contract, terms, b
   return (
     <Card className="mb-5 divide-y divide-line">
       <div className="grid grid-cols-1 gap-4 px-5 py-4 lg:grid-cols-[250px_1fr]">
-        {head(1, 'Proses Pengadaan', st1, contract ? 'ok' : orig ? 'run' : 'idle', can && (orig ? <Button size="xs" variant="primary" icon={RefreshCw} onClick={() => onUpdate('pengadaan')}>Update</Button> : !contract && approval.history.length ? <Button size="xs" variant="primary" icon={FileSignature} onClick={() => onModal('contract')}>Rilis {p.method === 'SPP Pusat' ? 'SP2K' : 'PO'}</Button> : contract && !amendment ? <Button size="xs" icon={FileSignature} onClick={() => onModal('amendReq')}>Ajukan Amandemen</Button> : null), 'proses')}
+        {head(1, 'Proses Pengadaan', st1, contract ? 'ok' : orig ? 'run' : 'idle', can && (orig ? <Button size="xs" variant="primary" icon={RefreshCw} onClick={() => onUpdate('pengadaan')}>Update</Button> : !contract && approval.history.length ? <Button size="xs" variant="primary" icon={FileSignature} onClick={() => onModal('contract')}>Rilis {p.method === 'SPP Pusat' ? 'SP2K' : 'PO'}</Button> : contract && !amendment ? <Button size="xs" icon={FileSignature} onClick={onAmend}>Ajukan Amandemen</Button> : null), 'proses')}
         <div className="min-w-0 self-center"><Stepper nodes={approval.nodes} /></div>
       </div>
       {amendment && (
         <div className="grid grid-cols-1 gap-4 bg-warnsoft/40 px-5 py-4 lg:grid-cols-[250px_1fr]">
-          {head(1, `Amandemen ${amendment.seq} ${contract?.kind}`, `${cur?.amendment_id === amendment.id ? `${cur.stage} · ${cur.days ?? 0} hari kerja` : 'Menunggu rilis'} · ${amendment.reason}`, 'run', can && (cur?.amendment_id === amendment.id ? <Button size="xs" variant="primary" icon={RefreshCw} onClick={() => onUpdate('pengadaan')}>Update</Button> : <Button size="xs" variant="primary" onClick={() => onModal('amendRel')}>Rilis amandemen</Button>), 'proses')}
+          {head(1, `Amandemen ${amendment.seq} ${amendment.contract_kind || contract?.kind || ''}`, `${cur?.amendment_id === amendment.id ? `${cur.stage} · ${cur.days ?? 0} hari kerja` : 'Menunggu rilis'} · ${amendment.reason}`, 'run', can && (cur?.amendment_id === amendment.id ? <Button size="xs" variant="primary" icon={RefreshCw} onClick={() => onUpdate('pengadaan')}>Update</Button> : <Button size="xs" variant="primary" onClick={() => onModal('amendRel')}>Rilis amandemen</Button>), 'proses')}
           <div className="min-w-0 self-center"><Stepper nodes={amendment.nodes} /></div>
         </div>
       )}
@@ -364,7 +369,7 @@ function RabCard({ p }: { p: Props['procurement'] }) {
   if (!p.rab_items.length) return null;
   return (
     <Card>
-      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left"><span><span className="block text-[15px] font-bold">Informasi RAB</span><span className="num block text-[12.5px] text-mute">{p.rab_items.length} baris · total {rp(p.rab_value)}</span></span><ChevronDown size={18} className={cx('text-mute transition', open ? 'rotate-180' : '')} /></button>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left"><span><span className="block text-[15px] font-bold">Informasi RAB</span></span><ChevronDown size={18} className={cx('text-mute transition', open ? 'rotate-180' : '')} /></button>
       {open && <div className="border-t border-line"><TableWrap>
         <thead><tr>{['Deskripsi', 'Tipe Anggaran', 'PRK', 'Jumlah', 'Satuan', 'Harga', 'Total'].map((x) => <th key={x} className={cx(th, ['Jumlah', 'Harga', 'Total'].includes(x) && 'text-right')}>{x}</th>)}</tr></thead>
         <tbody>{p.rab_items.map((r) => <tr key={r.id}><td className={cx(td, 'min-w-[260px] font-medium')}>{r.description}</td><td className={td}><Badge tone={r.budget_type === 'CAPEX' ? 'teal' : 'navy'}>{r.budget_type}</Badge></td><td className={cx(td, 'whitespace-nowrap')}><span className="num font-semibold">{r.budget_code}</span><span className="block max-w-[220px] truncate text-[11.5px] text-mute">{r.program}</span></td><td className={cx(td, 'num text-right')}>{r.qty.toLocaleString('id-ID')}</td><td className={td}>{r.unit}</td><td className={cx(td, 'num whitespace-nowrap text-right')}>{rp(r.price)}</td><td className={cx(td, 'num whitespace-nowrap text-right font-semibold')}>{rp(r.total)}</td></tr>)}</tbody>
@@ -374,20 +379,23 @@ function RabCard({ p }: { p: Props['procurement'] }) {
   );
 }
 
-/** Kontrak perjanjian pelaksanaan pekerjaan (berdampingan dengan SP2K/PO). */
-function WorkContractModal({ open, onClose, code, value }: { open: boolean; onClose: () => void; code: string; value: { number: string; date: string | null; link: string | null } | null }) {
-  const { app } = usePage<PageProps>().props;
-  const form = useForm({ work_contract_number: '', work_contract_date: '', work_contract_link: '' });
-  useEffect(() => { if (open) form.setData({ work_contract_number: value?.number || '', work_contract_date: value?.date || app.today, work_contract_link: value?.link || '' }); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  const e = form.errors as Record<string, string>;
+type ContractData = NonNullable<Props['contract']>;
+
+/** Satu kartu kontrak; tampilan dan aksi sama untuk SP2K/PO dan Kontrak Pengadaan. */
+function ContractCard({ c, can, amendmentRunning, onEdit, onAmend }: { c: ContractData; can: boolean; amendmentRunning: boolean; onEdit: () => void; onAmend: () => void }) {
   return (
-    <Modal open={open} onClose={onClose} title={value ? 'Ubah kontrak perjanjian' : 'Upload kontrak perjanjian'} desc="Kontrak perjanjian pelaksanaan pekerjaan, di samping SP2K/PO."
-      footer={<><Button onClick={onClose}>Batal</Button><Button variant="primary" icon={Save} disabled={form.processing} onClick={() => form.post(`/pengadaan/${code}/kontrak-perjanjian`, { preserveScroll: true, onSuccess: onClose })}>Simpan</Button></>}>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Nomor kontrak" required error={e.work_contract_number}><Input value={form.data.work_contract_number} onChange={(x) => form.setData('work_contract_number', x.target.value)} /></Field>
-        <Field label="Tanggal kontrak" required error={e.work_contract_date}><Input type="date" value={form.data.work_contract_date} onChange={(x) => form.setData('work_contract_date', x.target.value)} /></Field>
-        <Field label="Tautan dokumen" className="sm:col-span-2" error={e.work_contract_link}><LinkField value={form.data.work_contract_link} onChange={(v) => form.setData('work_contract_link', v)} /></Field>
+    <Card>
+      <CardHead icon={c.is_primary ? FileSignature : ScrollText} title={<span className="flex flex-wrap items-center gap-2"><Badge tone={c.is_primary ? 'navy' : 'teal'}>{c.kind}</Badge><span className="num">{c.number}</span></span>} desc={c.vendor || undefined}
+        actions={<><LinkButton url={c.link} label={`Buka ${c.is_primary ? c.kind : 'kontrak'}`} size="sm" />{can && <Button size="sm" icon={Pencil} onClick={onEdit}>Koreksi data</Button>}{can && <Button size="sm" variant="primary" icon={Plus} onClick={onAmend} disabled={amendmentRunning} title={amendmentRunning ? 'Masih ada amandemen yang berjalan' : undefined}>Ajukan Amandemen</Button>}<Link href={`/kontrak/${c.id}`}><Button size="sm" variant="ghost">Halaman kontrak</Button></Link></>} />
+      <div className="p-5"><KV cols={3} items={[['Judul pekerjaan', c.title], ['Vendor / mitra', c.vendor || '–'], ['Tanggal kontrak', fmtDate(c.date)], ['Nilai sebelum PPN', rp(c.value_excl)], ['Nilai setelah PPN', rp(c.value_incl)], ['Mulai – rencana selesai', `${fmtDate(c.kickoff_date)} – ${fmtDate(c.end_date)}`], ['Ruang lingkup', c.scope || '–']]} /></div>
+      <div className="border-t border-line p-5"><p className="mb-3 text-[13.5px] font-bold">Amandemen {c.kind} ({c.amendments.length})</p>
+        {c.amendments.length === 0 ? <p className="text-[13px] text-mute">Belum ada amandemen.</p> : c.amendments.map((a) => (
+          <div key={a.id} className={cx('mb-3 rounded-lg border p-3 text-[13px] last:mb-0', a.status === 'Dalam Proses' ? 'border-warn/40 bg-warnsoft/40' : 'border-line')}>
+            <div className="flex flex-wrap items-center gap-2"><b>Amandemen {a.seq}</b><StatusBadge status={a.status} />{a.number && <span className="num font-semibold">{a.number}</span>}<span className="text-mute">{a.date ? fmtDate(a.date) : `diajukan ${fmtDate(a.requested_at)}`}</span>{a.change_types.map((t) => <Badge key={t} tone="outline">{t}</Badge>)}{a.link && <LinkButton url={a.link} label="Buka" />}</div>
+            <p className="mt-1">{a.description || a.reason}</p>
+            {a.after && Object.keys(a.after).length > 0 && <p className="mt-1 text-[12.5px] text-mute">{Object.entries(a.after).map(([k, v]) => `${k}: ${String((a.before || {})[k] ?? '–')} → ${String(v)}`).join(' · ')}</p>}
+          </div>))}
       </div>
-    </Modal>
+    </Card>
   );
 }

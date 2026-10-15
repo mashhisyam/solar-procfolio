@@ -11,6 +11,7 @@ class PksAmendment extends Model
 
     protected $casts = ['date' => 'date', 'effective_date' => 'date', 'new_end_date' => 'date', 'changed_parts' => 'array'];
 
+    /** @return BelongsTo<Pks, $this> */
     public function pks(): BelongsTo
     {
         return $this->belongsTo(Pks::class);

@@ -13,6 +13,7 @@ class ContractAmendment extends Model
 
     protected $casts = ['requested_at' => 'date', 'date' => 'date', 'stages' => 'array', 'change_types' => 'array', 'before' => 'array', 'after' => 'array'];
 
+    /** @return BelongsTo<VendorContract, $this> */
     public function contract(): BelongsTo
     {
         return $this->belongsTo(VendorContract::class, 'vendor_contract_id');

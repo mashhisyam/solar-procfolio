@@ -8,10 +8,12 @@ use App\Models\BeritaAcara;
 use App\Models\Company;
 use App\Models\ContractAmendment;
 use App\Models\Document;
+use App\Models\GoodsReceipt;
 use App\Models\Invoice;
 use App\Models\MasterItem;
 use App\Models\Pic;
 use App\Models\Procurement;
+use App\Models\VendorContract;
 use App\Models\WorkflowTemplate;
 use App\Support\WorkdayCalendar as Cal;
 
@@ -23,13 +25,15 @@ class ProcurementPresenter
     /** @return array<string, mixed> */
     public function detail(Procurement $p): array
     {
-        $p->loadMissing([...ProcurementInsight::WITH, 'visits.activities', 'rabItems.budgetCode', 'budgetCodes', 'candidateVendors',
-            'customerContracts.customer', 'pks.partner', 'pks.amendments', 'documents.customer', 'terms.goodsReceipt.beritaAcara', 'terms.invoice.pic', 'terms.goodsReceipt.pic', 'beritaAcara.terms:id,seq']);
+        $p->loadMissing([...ProcurementInsight::WITH, 'workContract.vendor', 'visits.activities', 'rabItems.budgetCode', 'budgetCodes', 'candidateVendors',
+            'customerContracts.customer', 'pks.partner', 'pks.amendments', 'documents.customer', 'terms.beritaAcara', 'terms.goodsReceipt.beritaAcara', 'terms.invoice.pic', 'terms.goodsReceipt.pic', 'beritaAcara.terms:id,seq']);
         $i = $this->insight;
         $row = $i->row($p);
         $approval = $i->currentApproval($p);
-        $am = $p->contract?->amendments->firstWhere('status', 'Dalam Proses');
+        $am = $p->activeAmendment();
+        $amContract = $am ? collect([$p->contract, $p->workContract])->filter()->firstWhere('id', $am->vendor_contract_id) : null;
         $plans = $this->workflow->termPlans($p);
+        $bas = $p->beritaAcara->keyBy('id');
         $pk = $p->pks;
 
         return [
@@ -38,9 +42,12 @@ class ProcurementPresenter
                 'method' => $p->method, 'proc_type' => $p->proc_type, 'category' => $p->category, 'proc_method' => $p->proc_method, 'priority' => $p->priority,
                 'sub_bidang' => $p->sub_bidang, 'pengaju_name' => $p->pengaju_name, 'registered_at' => Cal::iso($p->registered_at),
                 'rab_value' => (float) $p->rab_value, 'is_draft' => $p->is_draft, 'cancelled' => (bool) $p->cancelled_at, 'cancel_reason' => $p->cancel_reason,
+                'cancel_type' => $p->cancel_type, 'cancelled_at' => Cal::iso($p->cancelled_at),
+                // Pilihan penghentian yang tersedia saat ini: 'batal' (sebelum unit pengadaan), 'gagal' (sesudahnya), atau null.
+                'stop_option' => WorkflowService::stopTypeFor($p),
                 'status' => $i->status($p), 'post_state' => $i->postState($p), 'process_days' => $i->processDays($p),
                 'last_update' => $row['last_update'], 'last_update_days' => $row['last_update_days'],
-                'bak_number' => $p->bak_number, 'bak_date' => Cal::iso($p->bak_date),
+                'bak_number' => $p->bak_number, 'bak_date' => Cal::iso($p->bak_date), 'pa_number' => $p->pa_number,
                 'pks' => $pk ? ['id' => $pk->id, 'number' => $pk->number, 'title' => $pk->title, 'partner' => $pk->partner?->name, ...$pk->effective()] : null,
                 'candidate_vendors' => $p->candidateVendors->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
                 'vendor_id' => $p->vendor_id,
@@ -66,20 +73,12 @@ class ProcurementPresenter
             ],
             'amendment' => $am ? [
                 'id' => $am->id, 'seq' => $am->seq, 'reason' => $am->reason, 'proposal' => $am->proposal, 'change_types' => $am->change_types,
+                'contract_id' => $am->vendor_contract_id, 'contract_kind' => $amContract?->kind, 'contract_number' => $amContract?->number,
                 'nodes' => $i->stepper($p, Track::Pengadaan, null, $am->id),
             ] : null,
-            'contract' => $p->contract ? [
-                'id' => $p->contract->id, 'kind' => $p->contract->kind, 'number' => $p->contract->number, 'title' => $p->contract->title,
-                'vendor' => $p->contract->vendor?->name, 'vendor_id' => $p->contract->vendor_id, 'date' => Cal::iso($p->contract->date),
-                'kickoff_date' => Cal::iso($p->contract->kickoff_date), 'end_date' => Cal::iso($p->contract->end_date),
-                'value_excl' => (float) $p->contract->value_excl, 'value_incl' => (float) $p->contract->value_incl, 'scope' => $p->contract->scope, 'link' => $p->contract->link,
-                'amendments' => $p->contract->amendments->map(fn (ContractAmendment $a) => [
-                    'id' => $a->id, 'seq' => $a->seq, 'status' => $a->status, 'reason' => $a->reason, 'requested_at' => Cal::iso($a->requested_at),
-                    'number' => $a->number, 'date' => Cal::iso($a->date), 'change_types' => $a->change_types, 'description' => $a->description,
-                    'before' => $a->before, 'after' => $a->after, 'proposal' => $a->proposal, 'link' => $a->link,
-                ])->values(),
-            ] : null,
-            'terms' => $i->termFlows($p)->map(function ($f) use ($i, $p, $plans) {
+            'contract' => $p->contract ? $this->contract($p->contract) : null,
+            'work_contract' => $p->workContract ? $this->contract($p->workContract) : null,
+            'terms' => $i->termFlows($p)->map(function ($f) use ($i, $p, $plans, $bas) {
                 $t = $f['t'];
                 $late = $f['cur']?->stage_key === 'pelaksanaan' && ! $f['scheduled'] && ($plans[$t->id]['end'] ?? null)
                     ? max(0, Cal::daysBetween($plans[$t->id]['end'], $i->today())) : 0;
@@ -94,7 +93,8 @@ class ProcurementPresenter
                     'nodes' => $i->stepper($p, Track::Pasca, $t->id),
                     'history' => $i->history($f['visits']),
                     'ba_ids' => $t->beritaAcara->pluck('id')->values(),
-                    'ba_ready' => $t->beritaAcara->isNotEmpty() && $t->beritaAcara->every(fn ($b) => $b->status() === 'TTD Selesai'),
+                    // Status BA diambil dari BA pengadaan yang sudah memuat putaran TTD, agar tidak dimuat dua kali.
+                    'ba_ready' => $t->beritaAcara->isNotEmpty() && $t->beritaAcara->every(fn ($b) => $bas->get($b->id)?->status() === 'TTD Selesai'),
                     'gr' => $gr ? [
                         'id' => $gr->id, 'status' => $gr->status, 'number' => $gr->number, 'gr_type' => $gr->gr_type, 'amount' => $gr->amount !== null ? (float) $gr->amount : null, 'submitted_at' => Cal::iso($gr->submitted_at),
                         'gr_date' => Cal::iso($gr->gr_date), 'source_app' => $gr->source_app, 'pic_id' => $gr->pic_id, 'pic' => $gr->pic?->name,
@@ -131,6 +131,26 @@ class ProcurementPresenter
         ];
     }
 
+    /**
+     * Data kontrak untuk halaman detail; bentuknya sama untuk SP2K/PO dan Kontrak Pengadaan.
+     *
+     * @return array<string, mixed>
+     */
+    private function contract(VendorContract $c): array
+    {
+        return [
+            'id' => $c->id, 'is_primary' => (bool) $c->is_primary, 'kind' => $c->kind, 'number' => $c->number, 'title' => $c->title,
+            'vendor' => $c->vendor?->name, 'vendor_id' => $c->vendor_id, 'date' => Cal::iso($c->date),
+            'kickoff_date' => Cal::iso($c->kickoff_date), 'end_date' => Cal::iso($c->end_date),
+            'value_excl' => (float) $c->value_excl, 'value_incl' => (float) $c->value_incl, 'scope' => $c->scope, 'link' => $c->link,
+            'amendments' => $c->amendments->map(fn (ContractAmendment $a) => [
+                'id' => $a->id, 'seq' => $a->seq, 'status' => $a->status, 'reason' => $a->reason, 'requested_at' => Cal::iso($a->requested_at),
+                'number' => $a->number, 'date' => Cal::iso($a->date), 'change_types' => $a->change_types, 'description' => $a->description,
+                'before' => $a->before, 'after' => $a->after, 'proposal' => $a->proposal, 'link' => $a->link,
+            ])->values(),
+        ];
+    }
+
     /** @return array<string, mixed> */
     private function visit($v, ?ProcurementInsight $i = null): array
     {
@@ -156,7 +176,7 @@ class ProcurementPresenter
             'change_types' => ContractAmendment::CHANGE_TYPES,
             'invoice_statuses' => ['Submit Invoice', 'Verifikasi', 'Perlu Revisi', 'Antri Bayar', 'Dibayar'],
             'gr_statuses' => ['Belum Diajukan', 'Diajukan', 'Perlu Revisi', 'GR Terbit'],
-            'gr_types' => \App\Models\GoodsReceipt::TYPES,
+            'gr_types' => GoodsReceipt::TYPES,
             'checklist' => Invoice::CHECKLIST,
             'vendors' => Company::query()->whereIn('type', ['Vendor', 'Mitra'])->where('active', true)->orderBy('name')->get(['id', 'name']),
         ];
@@ -180,11 +200,14 @@ class ProcurementPresenter
         foreach ($p->customerContracts as $c) {
             $add('Perjanjian pelanggan', $c->kind, $c->number, $c->date, $c->link, $c->customer?->name, "/bakb/{$c->id}");
         }
-        if ($vc = $p->contract) {
+        foreach (collect([$p->contract, $p->workContract])->filter() as $vc) {
             $add('Kontrak', $vc->kind, $vc->number, $vc->date, $vc->link, $vc->vendor?->name, "/kontrak/{$vc->id}");
             foreach ($vc->amendments->where('status', 'Rilis') as $a) {
-                $add('Kontrak', "Amandemen {$a->seq}", $a->number, $a->date, $a->link, implode(', ', $a->change_types ?? []));
+                $add('Kontrak', "Amandemen {$a->seq} {$vc->kind}", $a->number, $a->date, $a->link, implode(', ', $a->change_types ?? []));
             }
+        }
+        if ($p->pa_number) {
+            $add('Perjanjian pelanggan', 'PA (Project Activation)', $p->pa_number, null, null, 'Nomor PA');
         }
         foreach ($p->beritaAcara as $b) {
             $seqs = $b->terms->pluck('seq')->sort()->map(fn ($n) => "Tahap {$n}")->implode(', ');
