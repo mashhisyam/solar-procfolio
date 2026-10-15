@@ -14,7 +14,7 @@ export default function CustomerContractShow({ contract: c, rows, customers, kin
     <>
       <Head title={c.number} />
       <PageHeader crumbs={[['Perjanjian Pelanggan', '/bakb'], [c.number]]} title={c.number} desc={c.title} actions={<><LinkButton url={c.link} label="Buka dokumen" size="sm" />{auth.can.edit && <Button icon={Pencil} onClick={() => setEdit(true)}>Ubah</Button>}</>} />
-      <Card className="mb-5"><div className="p-5"><KV cols={3} items={[['Jenis dokumen', c.kind], ['Pelanggan', c.customer || '–'], ['Revenue', c.revenue ? rp(c.revenue) : '–'], ['Tanggal dokumen', fmtDate(c.date)], ['Pengadaan terkait', String(rows.length)]]} /></div></Card>
+      <Card className="mb-5"><div className="p-5"><KV cols={3} items={[['Jenis dokumen', c.kind], ['Sub bidang', c.sub_bidang || '–'], ['Pelanggan', c.customer || '–'], ['Revenue', c.revenue ? rp(c.revenue) : '–'], ['Tanggal dokumen', fmtDate(c.date)], ['Pengadaan terkait', String(rows.length)]]} /></div></Card>
       <Card><CardHead title="Pengadaan terkait" />{rows.length ? <ProcTable rows={rows} /> : <EmptyState compact title="Belum ada pengadaan yang merujuk dokumen ini" />}</Card>
       <CustomerContractModal open={edit} onClose={() => setEdit(false)} item={c} customers={customers} kinds={kinds} />
     </>

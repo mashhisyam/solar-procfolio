@@ -9,10 +9,10 @@ import type { PageProps, StageDef } from '@/types';
 interface Vendor { id: number; name: string }
 
 /** Rilis SP2K/PO: kontrak + tahapan pembayaran (syarat penyerahan, rencana selesai, persentase). */
-export function ReleaseContractModal({ open, onClose, code, method, title, candidates, rab, contractTypes, runningStage }: { open: boolean; onClose: () => void; code: string; method: 'SPP' | 'Kemitraan'; title: string; candidates: Vendor[]; rab: number; contractTypes: string[]; runningStage?: string | null }) {
+export function ReleaseContractModal({ open, onClose, code, method, title, candidates, rab, contractTypes, runningStage }: { open: boolean; onClose: () => void; code: string; method: 'SPP Pusat' | 'SPP Kemitraan'; title: string; candidates: Vendor[]; rab: number; contractTypes: string[]; runningStage?: string | null }) {
   const { app } = usePage<PageProps>().props;
   const form = useForm({
-    kind: method === 'Kemitraan' ? 'PO' : 'SP2K', number: '', title, vendor_id: (candidates.length === 1 ? candidates[0].id : '') as number | '',
+    kind: method === 'SPP Kemitraan' ? 'PO' : 'SP2K', number: '', title, vendor_id: (candidates.length === 1 ? candidates[0].id : '') as number | '',
     date: app.today, kickoff_date: '', value_excl: 0, value_incl: 0, scope: '', link: '', close_stage: true,
     terms: [{ name: '', planned_end: '', percent: 100 }] as { name: string; planned_end: string; percent: number }[],
   });
@@ -23,13 +23,13 @@ export function ReleaseContractModal({ open, onClose, code, method, title, candi
   const setTerm = (k: number, patch: Partial<(typeof d.terms)[number]>) => form.setData('terms', d.terms.map((t, j) => (j === k ? { ...t, ...patch } : t)));
   const termErr = Object.entries(e).find(([k]) => k.startsWith('terms'))?.[1];
   return (
-    <Modal open={open} onClose={onClose} width="max-w-4xl" title={`Rilis ${method === 'SPP' ? 'SP2K' : 'PO'}`}
+    <Modal open={open} onClose={onClose} width="max-w-4xl" title={`Rilis ${method === 'SPP Pusat' ? 'SP2K' : 'PO'}`}
       footer={<><Button onClick={onClose}>Batal</Button><Button variant="primary" icon={Save} disabled={form.processing} onClick={() => form.post(`/pengadaan/${code}/kontrak`, { preserveScroll: true, onSuccess: onClose })}>Simpan & rilis</Button></>}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Jenis dokumen kontrak" required><Select value={d.kind} onChange={(x) => form.setData('kind', x.target.value)}>{contractTypes.map((t) => <option key={t}>{t}</option>)}</Select></Field>
         <Field label="Nomor kontrak" required error={e.number}><Input value={d.number} invalid={!!e.number} onChange={(x) => form.setData('number', x.target.value)} placeholder={d.kind === 'PO' ? 'PO/ICP/2026/45xxxxx' : 'SP2K/ICP/2026/0xxx'} /></Field>
         <Field label="Judul pekerjaan" required className="sm:col-span-2"><Input value={d.title} onChange={(x) => form.setData('title', x.target.value)} /></Field>
-        <Field label={method === 'Kemitraan' ? 'Mitra pemenang' : 'Vendor pemenang'} required error={e.vendor_id} hint="Dipilih dari calon vendor; menjadi Pihak Kedua di BA."><Select value={d.vendor_id} invalid={!!e.vendor_id} onChange={(x) => form.setData('vendor_id', Number(x.target.value) || '')}><option value="">Pilih pemenang</option>{candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
+        <Field label={method === 'SPP Kemitraan' ? 'Mitra pemenang' : 'Vendor pemenang'} required error={e.vendor_id} hint="Dipilih dari calon vendor; menjadi Pihak Kedua di BA."><Select value={d.vendor_id} invalid={!!e.vendor_id} onChange={(x) => form.setData('vendor_id', Number(x.target.value) || '')}><option value="">Pilih pemenang</option>{candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></Field>
         <Field label="Tanggal kontrak" required error={e.date}><Input type="date" value={d.date} onChange={(x) => form.setData('date', x.target.value)} /></Field>
         <Field label="Nilai sebelum PPN" required error={e.value_excl}><MoneyInput value={d.value_excl} onChange={(n) => form.setData('value_excl', n)} invalid={!!e.value_excl} /></Field>
         <Field label="Nilai setelah PPN" required error={e.value_incl} hint={rab ? `RAB ${rp(rab)}` : undefined}><MoneyInput value={d.value_incl} onChange={(n) => form.setData('value_incl', n)} invalid={!!e.value_incl} /></Field>
@@ -54,7 +54,7 @@ export function ReleaseContractModal({ open, onClose, code, method, title, candi
         <div className="flex flex-wrap items-center gap-3 px-4 py-3"><Button size="xs" icon={Plus} onClick={() => form.setData('terms', [...d.terms, { name: '', planned_end: '', percent: Math.max(0, 100 - sum) }])}>Tambah tahap</Button>{lastEnd && <span className="flex items-center gap-1.5 text-[12.5px] text-mute">Batas pekerjaan {fmtDate(lastEnd)} <DeadlinePill date={lastEnd} /></span>}</div>
         {termErr && <p className="px-4 pb-3 text-[12px] font-medium text-bad">{termErr}</p>}
       </div>
-      {runningStage && <div className="mt-4 rounded-lg border border-warn/30 bg-warnsoft p-3"><Checkbox checked={d.close_stage} onChange={(v) => form.setData('close_stage', v)} label={`Tutup tahap ${runningStage} dengan aktivitas ${method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis'}`} /></div>}
+      {runningStage && <div className="mt-4 rounded-lg border border-warn/30 bg-warnsoft p-3"><Checkbox checked={d.close_stage} onChange={(v) => form.setData('close_stage', v)} label={`Tutup tahap ${runningStage} dengan aktivitas ${method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis'}`} /></div>}
     </Modal>
   );
 }

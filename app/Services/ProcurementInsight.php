@@ -240,9 +240,7 @@ class ProcurementInsight
     {
         $s = $p->priority === 'Urgent' ? 100 : 0;
         foreach ($alerts as $a) {
-            $s += match ($a['code']) {
-                'dur-bad', 'late' => 60, 'no-update' => 30, 'dur-warn' => 20, default => 10
-            };
+            $s += match ($a['code']) { 'dur-bad', 'late' => 60, 'no-update' => 30, 'dur-warn' => 20, default => 10 };
         }
 
         return $s;
@@ -346,7 +344,7 @@ class ProcurementInsight
             $am = $p->contract?->amendments->firstWhere('id', $amendmentId);
             $nodes[] = ['key' => 'final', 'group' => null, 'name' => 'Amandemen Rilis', 'state' => $am?->status === 'Rilis' ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($am?->date), 'days' => null, 'scheduled' => false];
         } else {
-            $nodes[] = ['key' => 'final', 'group' => null, 'name' => $p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
+            $nodes[] = ['key' => 'final', 'group' => null, 'name' => $p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
         }
 
         return $nodes;

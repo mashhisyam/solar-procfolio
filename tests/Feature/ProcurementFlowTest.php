@@ -3,10 +3,8 @@
 use App\Models\BudgetCode;
 use App\Models\Company;
 use App\Models\CustomerContract;
-use App\Models\Pic;
 use App\Models\Procurement;
 use App\Models\User;
-use App\Services\ProcurementInsight;
 use Database\Seeders\ReferenceSeeder;
 
 beforeEach(function () {
@@ -22,15 +20,17 @@ beforeEach(function () {
 function payload(array $over = []): array
 {
     return array_merge([
-        'draft' => false, 'method' => 'SPP', 'title' => 'Pengadaan Lisensi Uji', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung',
+        'draft' => false, 'method' => 'SPP Pusat', 'title' => 'Pengadaan Lisensi Uji', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung',
         'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'registered_at' => '2026-01-05', 'spp_number' => 'SPP/2026/BJB/000001', 'spp_date' => '2026-01-02',
-        'pic_pengaju_id' => Pic::query()->value('id'), 'candidate_vendor_ids' => [test()->vendor->id], 'customer_contract_ids' => [test()->bakb->id],
+        'pic_pengaju_id' => App\Models\Pic::query()->value('id'), 'candidate_vendor_ids' => [test()->vendor->id], 'customer_contract_ids' => [test()->bakb->id],
         'budget_code_id' => test()->code->id,
         'rab_items' => [['description' => 'LISENSI UJI', 'budget_type' => 'OPEX', 'qty' => 10, 'unit' => 'User', 'price' => 1000000]],
-        'documents' => [['doc_type' => 'TOR', 'required' => true, 'available' => true, 'number' => 'TOR/001'], ['doc_type' => 'BCR (Benefit Cost Ratio)', 'required' => true, 'available' => false]],
+        'documents' => [['doc_type' => 'TOR (Term of Reference)', 'required' => true, 'available' => true, 'number' => 'TOR/001'], ['doc_type' => 'BCR (Benefit Cost Ratio)', 'required' => true, 'available' => false]],
         'workflow' => [
-            ['key' => 'pengaju', 'name' => 'Pengaju', 'enabled' => true], ['key' => 'anggaran', 'name' => 'Anggaran', 'enabled' => true],
-            ['key' => 'rendan', 'name' => 'Perencana Pengadaan', 'enabled' => false], ['key' => 'lakdan', 'name' => 'Pelaksana Pengadaan', 'enabled' => true],
+            ['key' => 'pengaju', 'name' => 'Pengaju', 'group' => 'Pengaju', 'enabled' => true],
+            ['key' => 'anggaran', 'name' => 'Anggaran', 'group' => 'Anggaran', 'enabled' => true],
+            ['key' => 'pengadaan_mgr', 'name' => 'Manager Pengadaan', 'group' => 'Manager Pengadaan', 'enabled' => true],
+            ['key' => 'lakdan', 'name' => 'Pelaksana Pengadaan', 'group' => 'Pelaksana Pengadaan', 'enabled' => true],
         ],
     ], $over);
 }
@@ -119,7 +119,7 @@ it('menandai tahap dibayar dan pengadaan selesai saat Antri Bayar ditutup', func
     }
 
     expect($term->fresh()->paid_at->toDateString())->toBe('2026-02-15')
-        ->and(app(ProcurementInsight::class)->status($p->fresh()->load(ProcurementInsight::WITH)))->toBe('Selesai');
+        ->and(app(App\Services\ProcurementInsight::class)->status($p->fresh()->load(App\Services\ProcurementInsight::WITH)))->toBe('Selesai');
 });
 
 it('Revisi Minor kembali ke pengaju lalu langsung ke tahap asal tanpa mengulang approval', function () {
@@ -127,11 +127,12 @@ it('Revisi Minor kembali ke pengaju lalu langsung ke tahap asal tanpa mengulang 
     $p = Procurement::query()->firstOrFail();
     $go = fn (array $d) => $this->post("/pengadaan/{$p->code}/proses", ['track' => 'pengadaan', 'activity' => 'Review Dokumen'] + $d);
     $go(['mode' => 'complete', 'date' => '2026-01-06']);
-    $go(['mode' => 'complete', 'date' => '2026-01-07']); // sekarang di lakdan
-    $go(['mode' => 'skip', 'date' => '2026-01-08', 'note' => 'coba lewati'])->assertSessionHasErrors('mode');
-    $go(['mode' => 'rev_minor', 'date' => '2026-01-08', 'note' => 'TOR perlu dilengkapi'])->assertSessionHasNoErrors();
+    $go(['mode' => 'complete', 'date' => '2026-01-07']);
+    $go(['mode' => 'complete', 'date' => '2026-01-08']); // sekarang di lakdan
+    $go(['mode' => 'skip', 'date' => '2026-01-09', 'note' => 'coba lewati'])->assertSessionHasErrors('mode');
+    $go(['mode' => 'rev_minor', 'date' => '2026-01-09', 'note' => 'TOR perlu dilengkapi'])->assertSessionHasNoErrors();
     expect($p->visits()->where('status', 'Dalam Proses')->value('stage_key'))->toBe('pengaju');
-    $go(['mode' => 'complete', 'date' => '2026-01-09'])->assertSessionHasNoErrors();
+    $go(['mode' => 'complete', 'date' => '2026-01-10'])->assertSessionHasNoErrors();
     expect($p->visits()->where('status', 'Dalam Proses')->value('stage_key'))->toBe('lakdan')
         ->and($p->visits()->where('stage_key', 'anggaran')->where('status', 'Dilewati')->exists())->toBeFalse();
 });
@@ -144,7 +145,7 @@ it('Revisi Mayor mengulang approval dari awal dan menambah siklus', function () 
     $go(['mode' => 'complete', 'date' => '2026-01-07']);
     $go(['mode' => 'rev_major', 'date' => '2026-01-08', 'note' => 'Spesifikasi berubah total'])->assertSessionHasNoErrors();
     $go(['mode' => 'complete', 'date' => '2026-01-09'])->assertSessionHasNoErrors();
-    $p->refresh()->load(ProcurementInsight::WITH);
+    $p->refresh()->load(App\Services\ProcurementInsight::WITH);
     expect($p->visits()->where('status', 'Dalam Proses')->value('stage_key'))->toBe('anggaran')
-        ->and(app(ProcurementInsight::class)->approvalCycle($p))->toBe(2);
+        ->and(app(App\Services\ProcurementInsight::class)->approvalCycle($p))->toBe(2);
 });

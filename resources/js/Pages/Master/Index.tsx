@@ -70,13 +70,13 @@ function Lists({ items, groups }: { items: Record<string, Item[]>; groups: Recor
 }
 
 function Workflows({ templates }: { templates: Record<string, Tpl[]> }) {
-  const [scheme, setScheme] = useState('SPP');
-  const [rows, setRows] = useState<Tpl[]>(templates.SPP || []);
+  const [scheme, setScheme] = useState('SPP Pusat');
+  const [rows, setRows] = useState<Tpl[]>(templates['SPP Pusat'] || []);
   const pick = (s: string) => { setScheme(s); setRows(templates[s] || []); };
   const move = (i: number, d: -1 | 1) => { const n = [...rows]; [n[i], n[i + d]] = [n[i + d], n[i]]; setRows(n); };
   return (
     <Card><CardHead title="Template alur" desc="Perubahan berlaku untuk pengadaan baru; pengadaan berjalan memakai salinan alurnya sendiri."
-      actions={<><Select className="w-[220px]" value={scheme} onChange={(e) => pick(e.target.value)}><option value="SPP">Proses Pengadaan · SPP</option><option value="Kemitraan">Proses Pengadaan · Kemitraan</option><option value="Pasca">Pasca Pengadaan (per tahap)</option></Select><Button variant="primary" icon={Save} onClick={() => post(`/master/workflow/${scheme}`, { stages: rows.map((r) => ({ key: r.key, name: r.name, enabled: r.enabled, optional: r.optional, pic_id: r.pic_id, default_activities: r.default_activities || [] })) })}>Simpan</Button></>} />
+      actions={<><Select className="w-[220px]" value={scheme} onChange={(e) => pick(e.target.value)}><option value="SPP Pusat">Proses Pengadaan · SPP Pusat</option><option value="SPP Kemitraan">Proses Pengadaan · SPP Kemitraan</option><option value="Pasca">Pasca Pengadaan (per tahap)</option></Select><Button variant="primary" icon={Save} onClick={() => post(`/master/workflow/${scheme}`, { stages: rows.map((r) => ({ key: r.key, name: r.name, enabled: r.enabled, optional: r.optional, pic_id: r.pic_id, default_activities: r.default_activities || [] })) })}>Simpan</Button></>} />
       <TableWrap><thead><tr>{['Urutan', 'Kunci', 'Nama tahap', 'Aktif default', 'Opsional', 'Aktivitas default', ''].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => <tr key={r.key + i}>
           <td className={td}><div className="flex gap-1"><button disabled={i === 0} onClick={() => move(i, -1)} aria-label="Naik" className="text-mute disabled:opacity-30"><ArrowUp size={14} /></button><button disabled={i === rows.length - 1} onClick={() => move(i, 1)} aria-label="Turun" className="text-mute disabled:opacity-30"><ArrowDown size={14} /></button></div></td>

@@ -7,11 +7,8 @@ use App\Enums\InvoiceStatus;
 use App\Enums\Track;
 use App\Enums\VisitStatus;
 use App\Models\ContractAmendment;
-use App\Models\GoodsReceipt;
-use App\Models\Invoice;
-use App\Models\Payment;
 use App\Models\PaymentTerm;
-use App\Models\Pic;
+use App\Models\Payment;
 use App\Models\Procurement;
 use App\Models\StageActivity;
 use App\Models\StageVisit;
@@ -19,7 +16,6 @@ use App\Models\TermPlanHistory;
 use App\Models\VendorContract;
 use App\Models\WorkflowTemplate;
 use App\Support\WorkdayCalendar as Cal;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -178,9 +174,7 @@ class WorkflowService
             VisitStatus::Returned => "Dikembalikan: {$reason}",
             default => "Tahap {$v->stage_name} dilewati".($reason ? ": {$reason}" : '').'.',
         };
-        $kind = match ($status) {
-            VisitStatus::Done => 'selesai', VisitStatus::Returned => 'kembali', default => 'lewati'
-        };
+        $kind = match ($status) { VisitStatus::Done => 'selesai', VisitStatus::Returned => 'kembali', default => 'lewati' };
         $this->activity($v, $date, $activity ?: (string) $v->activity, $note, $kind);
     }
 
@@ -297,12 +291,12 @@ class WorkflowService
                         $errors[$k] = "{$label} wajib diisi untuk menyelesaikan Proses GR.";
                     }
                 }
-                if (! empty($d['gr_number']) && GoodsReceipt::query()->where('number', $d['gr_number'])->where('payment_term_id', '!=', $termId)->exists()) {
+                if (! empty($d['gr_number']) && \App\Models\GoodsReceipt::query()->where('number', $d['gr_number'])->where('payment_term_id', '!=', $termId)->exists()) {
                     $errors['gr_number'] = 'Nomor GR sudah dipakai tahap lain.';
                 }
             }
             if ($track === Track::Pasca && $v->stage_key === 'invoice' && $mode === 'complete' && ! empty($d['invoice_number'])
-                && Invoice::query()->where('number', $d['invoice_number'])->where('payment_term_id', '!=', $termId)->exists()) {
+                && \App\Models\Invoice::query()->where('number', $d['invoice_number'])->where('payment_term_id', '!=', $termId)->exists()) {
                 $errors['invoice_number'] = 'Nomor invoice sudah dipakai tahap lain.';
             }
             if ($errors) {
@@ -315,7 +309,7 @@ class WorkflowService
                 $v->entered_at = $entered;
             }
             if (array_key_exists('pic_id', $d) && (int) ($d['pic_id'] ?? 0) !== (int) $v->pic_id) {
-                $this->audit->log($p->id, 'Tahap', $v->id, 'Ganti PIC', "PIC {$v->stage_name}", $v->pic?->name, optional(Pic::query()->find($d['pic_id']))->name);
+                $this->audit->log($p->id, 'Tahap', $v->id, 'Ganti PIC', "PIC {$v->stage_name}", $v->pic?->name, optional(\App\Models\Pic::query()->find($d['pic_id']))->name);
                 $v->pic_id = $d['pic_id'] ?: null;
             }
             $v->save();
@@ -356,7 +350,7 @@ class WorkflowService
                         $this->audit->log($p->id, 'Invoice', $inv->id, 'Catat invoice', "Invoice Tahap {$term->seq}", null, $inv->number);
                     }
                     $this->closeVisit($v, $date, VisitStatus::Done, $activity);
-                    $finalLabel = $track === Track::Pasca ? 'Dibayar' : ($amendmentId ? 'Amandemen Rilis' : ($p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis'));
+                    $finalLabel = $track === Track::Pasca ? 'Dibayar' : ($amendmentId ? 'Amandemen Rilis' : ($p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis'));
                     $this->audit->log($p->id, 'Tahap', $v->id, 'Selesaikan tahap', $subject, $v->stage_name, $next['name'] ?? $finalLabel, $note ?: null);
                     if ($next) {
                         $this->markSkipped($p, $track, $v->stage_key, $next['key'], $date, '', $termId, $amendmentId);
@@ -373,7 +367,7 @@ class WorkflowService
                         $msg = 'Tahap amandemen selesai. Catat nomor dan isi amandemen.';
                         $after = 'amendment-release';
                     } else {
-                        $msg = "{$v->stage_name} selesai. Lanjutkan rilis ".($p->method === 'SPP' ? 'SP2K' : 'PO').' beserta tahapan pembayaran.';
+                        $msg = "{$v->stage_name} selesai. Lanjutkan rilis ".($p->method === 'SPP Pusat' ? 'SP2K' : 'PO').' beserta tahapan pembayaran.';
                         $after = 'contract';
                     }
                     break;
@@ -554,7 +548,7 @@ class WorkflowService
                 ->whereNull('amendment_id')->where('status', VisitStatus::Running->value)->latest('id')->first();
             if ($running && ($d['close_stage'] ?? true)) {
                 $closeDate = $d['date'] >= Cal::iso($running->entered_at) ? $d['date'] : Cal::today();
-                $this->closeVisit($running, $closeDate, VisitStatus::Done, $p->method === 'SPP' ? 'SP2K Rilis' : 'PO Rilis');
+                $this->closeVisit($running, $closeDate, VisitStatus::Done, $p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis');
             }
 
             foreach ($terms as $i => $t) {
@@ -612,7 +606,7 @@ class WorkflowService
             $vc = $am->contract;
             $types = $d['change_types'];
             $rp = fn ($v) => 'Rp'.number_format((float) $v, 0, ',', '.');
-            $tgl = fn ($v) => $v ? Carbon::parse($v)->translatedFormat('d M Y') : '-';
+            $tgl = fn ($v) => $v ? \Illuminate\Support\Carbon::parse($v)->translatedFormat('d M Y') : '-';
             // [kolom kontrak, label, nilai lama, nilai baru, format tampilan]
             $fields = [];
             if (in_array('Nilai', $types, true)) {

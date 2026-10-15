@@ -15,11 +15,11 @@ class Procurement extends Model
     protected $fillable = [
         'code', 'spp_number', 'spp_date', 'title', 'summary', 'method', 'proc_type', 'category', 'proc_method', 'priority',
         'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'registered_at', 'rab_value', 'pks_id', 'bak_number',
-        'bak_date', 'vendor_id', 'workflow', 'is_draft', 'cancelled_at', 'cancel_reason', 'created_by',
+        'bak_date', 'vendor_id', 'work_contract_number', 'work_contract_date', 'work_contract_link', 'workflow', 'is_draft', 'cancelled_at', 'cancel_reason', 'created_by',
     ];
 
     protected $casts = [
-        'spp_date' => 'date', 'registered_at' => 'date', 'bak_date' => 'date', 'cancelled_at' => 'datetime',
+        'spp_date' => 'date', 'registered_at' => 'date', 'bak_date' => 'date', 'work_contract_date' => 'date', 'cancelled_at' => 'datetime',
         'workflow' => 'array', 'is_draft' => 'boolean', 'rab_value' => 'decimal:2',
     ];
 

@@ -12,7 +12,7 @@ export interface Alert { code: string; tone: Tone; label: string; target: string
 
 /** Baris tabel monitoring (Dashboard & Daftar Pengadaan). */
 export interface ProcRow {
-  code: string; spp_number: string | null; title: string; rab_value: number; method: 'SPP' | 'Kemitraan'; proc_method: string | null;
+  code: string; spp_number: string | null; title: string; rab_value: number; method: 'SPP Pusat' | 'SPP Kemitraan'; proc_method: string | null;
   priority: 'Normal' | 'Urgent'; pengaju_name: string;
   progress: { approval: (string | null)[]; contract: boolean; terms: { paid: boolean; scheduled: boolean; stage: string | null }[] };
   track: 'pengadaan' | 'pasca'; amendment: boolean; stage: string | null; cycle: number; activity: string | null; pic: string | null;

@@ -221,7 +221,7 @@ export function ProcTable({ rows, sort, onSort }: { rows: ProcRow[]; sort?: { k:
           <td className={cx(td, 'whitespace-nowrap')}><div className="num text-[13.5px] font-extrabold tracking-tight text-navy">{r.spp_number || '–'}</div><div className="num text-[11.5px] font-semibold text-mute">{r.code}</div></td>
           <td className={cx(td, 'min-w-[220px] max-w-[280px]')}><div className="line-clamp-2 font-semibold">{r.title}</div></td>
           <td className={cx(td, 'num whitespace-nowrap text-right font-semibold')}>{r.rab_value ? rp(r.rab_value) : '–'}</td>
-          <td className={cx(td, 'min-w-[120px]')}><Badge tone={r.method === 'SPP' ? 'navy' : 'teal'}>{r.method}</Badge>{r.proc_method && <div className="mt-1 whitespace-nowrap text-[11.5px] text-mute">{r.proc_method}</div>}</td>
+          <td className={cx(td, 'min-w-[120px]')}><Badge tone={r.method === 'SPP Pusat' ? 'navy' : 'teal'}>{r.method}</Badge>{r.proc_method && <div className="mt-1 whitespace-nowrap text-[11.5px] text-mute">{r.proc_method}</div>}</td>
           <td className={cx(td, 'whitespace-nowrap')}>{r.pengaju_name || '–'}</td>
           <td className={cx(td, 'min-w-[150px]')}><div className="text-[11px] font-semibold text-mute">{r.track === 'pasca' ? 'Pasca Pengadaan' : r.amendment ? 'Amandemen' : 'Proses Pengadaan'}</div><div className="font-semibold">{r.stage || '–'}{r.cycle > 1 && <span className="ml-1 text-[11.5px] text-warn">siklus {r.cycle}</span>}</div></td>
           <td className={cx(td, 'min-w-[130px]')}>{r.activity || '–'}</td>

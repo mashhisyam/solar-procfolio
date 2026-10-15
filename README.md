@@ -10,10 +10,20 @@ Setiap pengadaan dipantau lewat dua progres yang tampil di satu halaman detail.
 
 **Progres 1 · Proses Pengadaan** berakhir saat SP2K/PO rilis.
 
-| Skema | Alur |
+| Skema / metode | Alur |
 | --- | --- |
-| SPP | Pengaju → Anggaran → Perencana Pengadaan (opsional) → Pelaksana Pengadaan → SP2K Rilis |
-| Kemitraan | Pengaju → Anggaran → Partnership → PO Rilis |
+| SPP Pusat, Pengadaan Langsung | Pengaju (User → Manager → L1/VP → Direktur*) → Sales (Manager → L1/VP) → Anggaran (Staff → Manager → L1/VP → Direktur*) → Manager Pengadaan → Pelaksana Pengadaan (SPV Lakdan → Staff Lakdan) → SP2K Rilis |
+| SPP Pusat, metode lain | Pengaju → Sales → Anggaran → Manager Pengadaan → Perencana Pengadaan (SPV Rendan → Staff Rendan) → Pelaksana Pengadaan (SPV Lakdan → Staff Lakdan) → SP2K Rilis |
+| SPP Kemitraan | Pengaju → Sales → Anggaran → Partnership → PO Rilis |
+
+\* Tahap Direktur bersifat opsional. Tahap pada Proses Pengadaan tidak dapat dilewati.
+
+Pengembalian di Proses Pengadaan ada dua jenis:
+
+| Jenis | Perilaku |
+| --- | --- |
+| Revisi Minor | Kembali ke User Pengaju; setelah diperbaiki, proses langsung kembali ke tahap yang mengembalikan tanpa mengulang approval. |
+| Revisi Mayor | Kembali ke User Pengaju dan seluruh approval diulang dari awal; siklus approval bertambah satu. |
 
 Setelah kontrak rilis, Progres 1 terkunci. Satu-satunya cara membukanya kembali adalah mengajukan amandemen, yang punya alur approval sendiri sampai Amandemen Rilis.
 
@@ -21,22 +31,28 @@ Setelah kontrak rilis, Progres 1 terkunci. Satu-satunya cara membukanya kembali 
 
 Pelaksanaan Pekerjaan → BA Penutupan → Proses GR → Invoicing → Verifikasi Invoice → Antri Bayar → Dibayar
 
-Jadwal tahap dihitung dari tanggal kick off dan rencana tanggal selesai tiap tahap. Sebuah tahap baru bisa melewati BA Penutupan setelah BA-nya berstatus TTD Selesai.
+Jadwal tahap dihitung dari tanggal kick off dan rencana tanggal selesai tiap tahap. Satu tahap boleh memiliki lebih dari satu BA. Proses GR hanya bisa diselesaikan setelah detail GR (nomor, jenis, nominal, tautan) diisi; invoice boleh dicatat atau tidak.
 
 ## Aturan utama
 
 - Nomor SPP wajib diisi sejak registrasi, termasuk saat menyimpan draft.
-- Setiap pengadaan wajib memiliki dasar dengan pelanggan: BAKB/Kontrak pelanggan atau MoM.
-- RAB diisi per baris (deskripsi, tipe anggaran, kode anggaran, jumlah, satuan, harga) dan nilainya dihitung otomatis.
+- Setiap pengadaan wajib merujuk minimal satu perjanjian pelanggan: Berita Acara Kesepakatan Biaya, Kontrak Perjanjian, Surat Penugasan, atau PA (Project Activation).
+- Setiap pengadaan memakai satu PRK. RAB diisi per baris (deskripsi, tipe anggaran, jumlah, satuan, harga) dan nilainya dihitung otomatis.
+- Setiap pengadaan memiliki kategori (Lisensi/Non Lisensi, dari master).
+- Dashboard menampilkan cost, revenue (dari perjanjian pelanggan), posisi setiap proses, dan jumlah pengadaan selesai.
+- Menu RKAP memantau penetapan anggaran tiap PRK per sub bidang: Nilai Pengajuan, Nilai Digunakan, dan Sisa Anggaran. Sisa boleh minus dan hanya diinformasikan.
+- PRK yang dapat dipilih saat registrasi mengikuti sub bidang pengadaan.
+- Pekerjaan dapat memiliki kontrak perjanjian pelaksanaan di samping SP2K/PO.
 - Calon vendor diisi saat registrasi. Pemenang dipilih dari daftar itu saat rilis SP2K/PO, lalu otomatis menjadi Pihak Kedua di setiap BA.
 - Tahapan pembayaran diisi saat rilis SP2K/PO: syarat penyerahan, rencana tanggal selesai, persentase, dan nilai bayar.
-- Dokumen tidak diunggah. Setiap isian dokumen berupa tautan SharePoint.
+- Dokumen tidak diunggah. Setiap isian dokumen berupa tautan (SharePoint atau sharefolder).
+- Isian teks bebas otomatis ditulis dengan huruf kapital.
 - Alert durasi Proses Pengadaan: hijau 0–4 hari kerja, kuning 5–6, merah 7 ke atas. Ambangnya diatur di Master.
 - Perubahan penting tercatat di audit log yang bersifat append-only.
 
 ## Teknologi
 
-Laravel 12 · Inertia.js · React 18 · TypeScript · Tailwind CSS · PostgreSQL 16 · SSO Microsoft Entra ID
+Laravel 12 · Inertia.js · React 18 · TypeScript · Tailwind CSS (Noto Sans) · PostgreSQL 16 · SSO Microsoft Entra ID
 
 ## Menjalankan di komputer sendiri
 
@@ -72,6 +88,21 @@ docker compose exec app php artisan migrate --seed
 ```
 
 Aplikasi berjalan di `http://localhost:8080` (ubah lewat `APP_PORT`). Container `worker` menjalankan queue dan scheduler, termasuk email ringkasan harian pada hari kerja pukul 07:30.
+
+## SSO Microsoft Entra ID
+
+1. Daftarkan aplikasi di Microsoft Entra ID, lalu catat Client ID, Client Secret dan Tenant ID.
+2. Tambahkan redirect URI: `https://<domain-procfolio>/auth/microsoft/callback`.
+3. Isi `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` dan `AZURE_REDIRECT_URI` di `.env`.
+4. Isi `PROCFOLIO_ADMIN_EMAILS` dengan email yang otomatis menjadi admin saat login pertama.
+
+Akun dibuat otomatis saat login SSO pertama dengan peran User Pengaju. Admin dapat mengubah peran di Master & Konfigurasi.
+
+| Peran | Hak |
+| --- | --- |
+| Admin | Semua, termasuk Master & Konfigurasi |
+| User Pengaju | Membuat dan memperbarui data pengadaan |
+| Pemantau | Hanya membaca |
 
 ## Backup
 

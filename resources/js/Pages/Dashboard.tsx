@@ -61,7 +61,7 @@ export default function Dashboard({ rows, kpi, filters }: Props) {
 
       <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-2.5 shadow-card">
         <span className="flex items-center gap-1.5 px-1.5 text-[12.5px] font-semibold text-mute"><Filter size={14} />Filter</span>
-        <div className="w-[160px]"><Select value={f.method} onChange={(e) => set('method', e.target.value)} aria-label="Skema"><option value="">Semua skema</option><option>SPP</option><option>Kemitraan</option></Select></div>
+        <div className="w-[160px]"><Select value={f.method} onChange={(e) => set('method', e.target.value)} aria-label="Skema"><option value="">Semua skema</option><option>SPP Pusat</option><option>SPP Kemitraan</option></Select></div>
         <div className="w-[165px]"><Select value={f.priority} onChange={(e) => set('priority', e.target.value)} aria-label="Prioritas"><option value="">Semua prioritas</option><option>Urgent</option><option>Normal</option></Select></div>
         <div className="w-[200px]"><Select value={f.pengaju} onChange={(e) => set('pengaju', e.target.value)} aria-label="User Pengaju"><option value="">Semua User Pengaju</option>{filters.pengaju.map((x) => <option key={x}>{x}</option>)}</Select></div>
         <div className="w-[230px]"><Select value={f.bakb} onChange={(e) => set('bakb', e.target.value)} aria-label="Perjanjian pelanggan"><option value="">Semua perjanjian pelanggan</option>{filters.customerContracts.map((c) => <option key={c.id} value={c.id}>{c.kind} · {c.number}</option>)}</Select></div>

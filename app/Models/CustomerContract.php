@@ -9,9 +9,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 /** Dasar pelanggan: BAKB, MoM Kesepakatan Harga, atau Kontrak Pelanggan. */
 class CustomerContract extends Model
 {
-    public const KINDS = ['BAKB', 'MoM Kesepakatan Harga', 'Kontrak Pelanggan'];
+    public const KINDS = ['Berita Acara Kesepakatan Biaya', 'Kontrak Perjanjian', 'Surat Penugasan', 'PA (Project Activation)'];
 
-    protected $fillable = ['kind', 'number', 'title', 'customer_id', 'date', 'revenue', 'link'];
+    protected $fillable = ['kind', 'sub_bidang', 'number', 'title', 'customer_id', 'date', 'revenue', 'link'];
 
     protected $casts = ['date' => 'date', 'revenue' => 'decimal:2'];
 

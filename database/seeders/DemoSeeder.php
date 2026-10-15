@@ -48,6 +48,8 @@ class DemoSeeder extends Seeder
         $bagus = $pic('Bagus Wicaksono', 'User Pengaju', 'Solution Architect', $icon, 'PLN 2');
         $pic('Sari Wulandari', 'Manager Pengaju', 'Manager Sub Bidang PLN 1', $icon, 'PLN 1');
         $pic('Hari Prasetyo', 'L1/VP Pengaju', 'VP Solution Architecture', $icon);
+        $pic('Ratna Dewi', 'Manager Sales', 'Manager Account Management', $icon);
+        $pic('Gilang Permana', 'L1/VP Sales', 'VP Sales & Marketing', $icon);
         $pic('Rina Kusuma', 'Staff Anggaran', 'Analis Anggaran', $icon);
         $pic('Yudi Pratama', 'Manager Anggaran', 'Manager Anggaran', $icon);
         $pic('Dimas Saputra', 'L1/VP Anggaran', 'VP Keuangan', $icon);
@@ -63,10 +65,31 @@ class DemoSeeder extends Seeder
         $roleId = fn (string $role) => Pic::query()->where('role', $role)->value('id');
 
         // ---------- perjanjian pelanggan, PKS, PRK ----------
-        $cc1 = CustomerContract::query()->firstOrCreate(['number' => 'BAKB/2026/011'], ['kind' => 'BAKB', 'revenue' => 2600000000, 'title' => 'LAYANAN DIGITAL WORKPLACE & KOLABORASI KANTOR CABANG', 'customer_id' => $ndu->id, 'date' => now()->subMonths(4)]);
-        $cc2 = CustomerContract::query()->firstOrCreate(['number' => 'MOM/2026/017'], ['kind' => 'MoM Kesepakatan Harga', 'revenue' => 3100000000, 'title' => 'KESEPAKATAN HARGA PENGEMBANGAN APLIKASI PERBANKAN', 'customer_id' => $bas->id, 'date' => now()->subMonths(5)]);
-        $cc3 = CustomerContract::query()->firstOrCreate(['number' => 'KTR/NDU/2026/004'], ['kind' => 'Kontrak Pelanggan', 'revenue' => 1200000000, 'title' => 'KONTRAK LAYANAN ANALITIK DATA PELANGGAN', 'customer_id' => $ndu->id, 'date' => now()->subMonths(6)]);
-        $pks = Pks::query()->firstOrCreate(['number' => 'PKS/2025/009'], ['title' => 'KERJA SAMA PENGEMBANGAN & PEMELIHARAAN APLIKASI', 'partner_id' => $mip->id, 'date' => now()->subYear(), 'start_date' => now()->subYear(), 'end_date' => now()->addYear(), 'scope' => 'PENGEMBANGAN APLIKASI CUSTOM DAN CHANGE REQUEST.']);
+        $cc = fn (string $number, string $kind, string $sub, float $revenue, string $title, Company $cust, int $monthsAgo) => CustomerContract::query()->firstOrCreate(['number' => $number],
+            ['kind' => $kind, 'sub_bidang' => $sub, 'revenue' => $revenue, 'title' => $title, 'customer_id' => $cust->id, 'date' => now()->subMonths($monthsAgo),
+                'link' => 'https://contoh.sharepoint.com/sites/SolArch/Perjanjian/'.str_replace('/', '-', $number).'.pdf']);
+        $cc1 = $cc('BAKB/2026/011', 'Berita Acara Kesepakatan Biaya', 'PLN 1', 2600000000, 'LAYANAN DIGITAL WORKPLACE & KOLABORASI KANTOR CABANG', $ndu, 4);
+        $cc2 = $cc('KTR/BAS/2026/017', 'Kontrak Perjanjian', 'PLN 1', 3100000000, 'PENGEMBANGAN & PEMELIHARAAN APLIKASI PERBANKAN', $bas, 5);
+        $cc3 = $cc('PA/NDU/2026/004', 'PA (Project Activation)', 'PLN 1', 1200000000, 'AKTIVASI PROYEK LAYANAN ANALITIK DATA PELANGGAN', $ndu, 6);
+        $cc4 = $cc('SP/PLN2/2026/031', 'Surat Penugasan', 'PLN 2', 1900000000, 'PENUGASAN LAYANAN APLIKASI FIELD SERVICE', $ndu, 3);
+        $pks = Pks::query()->firstOrCreate(['number' => 'PKS/2025/009'], ['title' => 'KERJA SAMA PENGEMBANGAN & PEMELIHARAAN APLIKASI', 'partner_id' => $mip->id,
+            'date' => now()->subMonths(16), 'start_date' => now()->subMonths(16), 'end_date' => now()->subMonths(4), 'scope' => 'PENGEMBANGAN APLIKASI CUSTOM DAN CHANGE REQUEST.',
+            'link' => 'https://contoh.sharepoint.com/sites/SolArch/PKS/PKS-2025-009.pdf']);
+        // Tiga amandemen: dua sudah efektif, satu baru berlaku bulan depan.
+        $amd = [
+            [1, 'AMD-PKS/2026/002', 10, 9, ['Masa Berlaku'], 'PERPANJANGAN MASA BERLAKU 6 BULAN.', now()->addMonths(2), null],
+            [2, 'AMD-PKS/2026/014', 5, 4, ['Ruang Lingkup', 'Ketentuan Komersial'], 'PENAMBAHAN DUKUNGAN OPERASIONAL DAN PENYESUAIAN RATE MANDAYS.', null, 'PENGEMBANGAN APLIKASI CUSTOM, CHANGE REQUEST, DAN DUKUNGAN OPERASIONAL.'],
+            [3, 'AMD-PKS/2026/021', 1, -1, ['Masa Berlaku', 'Para Pihak'], 'PERPANJANGAN SAMPAI 2028 DAN PERUBAHAN PEJABAT PENANDATANGAN.', now()->addYear()->addMonths(6), null],
+        ];
+        foreach ($amd as [$seq, $number, $dateAgo, $effAgo, $parts, $desc, $newEnd, $newScope]) {
+            $pks->amendments()->firstOrCreate(['number' => $number], ['seq' => $seq, 'date' => now()->subMonths($dateAgo), 'effective_date' => now()->subMonths($effAgo),
+                'changed_parts' => $parts, 'description' => $desc, 'new_end_date' => $newEnd, 'new_scope' => $newScope,
+                'link' => 'https://contoh.sharepoint.com/sites/SolArch/PKS/'.str_replace('/', '-', $number).'.pdf']);
+        }
+        // PKS kedua tanpa amandemen, dipakai satu pengadaan.
+        $pks2 = Pks::query()->firstOrCreate(['number' => 'PKS/2026/004'], ['title' => 'KERJA SAMA PENYEDIAAN LISENSI DAN DUKUNGAN TEKNIS', 'partner_id' => $mip->id,
+            'date' => now()->subMonths(8), 'start_date' => now()->subMonths(8), 'end_date' => now()->addMonths(16), 'scope' => 'PENYEDIAAN LISENSI PERANGKAT LUNAK DAN DUKUNGAN TEKNIS.',
+            'link' => 'https://contoh.sharepoint.com/sites/SolArch/PKS/PKS-2026-004.pdf']);
         $lic = BudgetCode::query()->where('code', 'IC02122025')->firstOrFail();
         $pen = BudgetCode::query()->where('code', 'IC00592026')->firstOrFail();
         $ecp = BudgetCode::query()->where('code', 'IC00782025')->firstOrFail();
@@ -78,9 +101,9 @@ class DemoSeeder extends Seeder
         // ---------- helper ----------
         $d = fn (int $weekdaysAgo) => now()->subWeekdays($weekdaysAgo)->toDateString();
         $make = function (array $attr, array $ccIds, array $vendors, BudgetCode $code, array $rab, array $docs) use ($numbering, $wf) {
-            $flow = $attr['method'] === 'SPP'
-                ? WorkflowService::applyRouting(WorkflowTemplate::stagesFor('SPP'), $attr['proc_method'] ?? null)
-                : WorkflowTemplate::stagesFor('Kemitraan');
+            $flow = $attr['method'] === 'SPP Pusat'
+                ? WorkflowService::applyRouting(WorkflowTemplate::stagesFor('SPP Pusat'), $attr['proc_method'] ?? null)
+                : WorkflowTemplate::stagesFor('SPP Kemitraan');
             $p = Procurement::query()->create([
                 ...$attr, 'code' => $numbering->nextProcurementCode((int) now()->format('Y')),
                 'rab_value' => collect($rab)->sum(fn ($r) => $r[2] * $r[4]), 'workflow' => WorkflowService::enforceRequired($flow),
@@ -135,24 +158,24 @@ class DemoSeeder extends Seeder
 
         // ===== 1) Approval di L1/VP Anggaran =====
         $p1 = $make(['spp_number' => 'SPP/2026/BJB/000041', 'spp_date' => $d(9), 'title' => 'PENGADAAN LISENSI MICROSOFT 365 E3 UNTUK 1.200 PENGGUNA', 'summary' => 'LISENSI KOLABORASI KANTOR CABANG PELANGGAN SELAMA 12 BULAN.',
-            'method' => 'SPP', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Tender Terbatas', 'priority' => 'Urgent', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(8)],
+            'method' => 'SPP Pusat', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Tender Terbatas', 'priority' => 'Urgent', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(8)],
             [$cc1->id], [$sln->id, $gpm->id], $lic,
             [['LISENSI MICROSOFT 365 E3 SUBSCRIPTION 12 BULAN', 'OPEX', 1200, 'User', 1450000], ['MIGRASI MAILBOX DAN ONBOARDING PENGGUNA', 'OPEX', 1, 'LOT (SERVICE & MATERIAL)', 110000000]],
-            [['TOR', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 142%']]);
+            [['TOR (Term of Reference)', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 142%']]);
         $advanceTo($p1, 'anggaran_vp', 7, 3);
 
         // ===== 2) Approval di Staff Lakdan =====
         $p2 = $make(['spp_number' => 'SPP/2026/BJB/000038', 'spp_date' => $d(15), 'title' => 'LISENSI ORACLE DATABASE ENTERPRISE SUPPORT 16 CORE', 'summary' => 'PERPANJANGAN DUKUNGAN LISENSI DATABASE UNTUK SISTEM ANALITIK PELANGGAN.',
-            'method' => 'SPP', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(14)],
+            'method' => 'SPP Pusat', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(14)],
             [$cc3->id], [$sln->id, $dap->id], $lic, [['ORACLE DATABASE ENTERPRISE SUPPORT PER CORE - ANNUALLY', 'OPEX', 16, 'Core', 61250000]],
-            [['TOR', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 118%']]);
+            [['TOR (Term of Reference)', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 118%']]);
         $advanceTo($p2, 'lakdan_staff', 13, 6);
 
         // ===== 3) Pasca Pengadaan: tahap 1 di BA Penutupan =====
         $p3 = $make(['spp_number' => 'SPP/2026/BJB/000024', 'spp_date' => $d(52), 'title' => 'PENGEMBANGAN APLIKASI CUSTOMER SELF-SERVICE PORTAL', 'summary' => 'PORTAL LAYANAN MANDIRI PELANGGAN PERBANKAN: WEB DAN MOBILE.',
-            'method' => 'SPP', 'proc_type' => 'Jasa', 'category' => 'Non Lisensi', 'proc_method' => 'Tender Terbuka', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(50)],
+            'method' => 'SPP Pusat', 'proc_type' => 'Jasa', 'category' => 'Non Lisensi', 'proc_method' => 'Tender Terbuka', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(50)],
             [$cc2->id], [$tan->id, $gpm->id], $pen, [['JASA PENGEMBANGAN CUSTOMER SELF-SERVICE PORTAL (WEB & MOBILE)', 'OPEX', 1, 'LOT (SERVICE & MATERIAL)', 1450000000]],
-            [['TOR', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 165%']]);
+            [['TOR (Term of Reference)', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 165%']]);
         $advanceTo($p3, 'lakdan_staff', 48, 37);
         $wf->updateProcess($p3, ['track' => 'pengadaan', 'mode' => 'complete', 'activity' => 'SP2K Rilis', 'date' => $d(36)]);
         $wf->releaseContract($p3, [
@@ -165,6 +188,8 @@ class DemoSeeder extends Seeder
                 ['name' => 'UAT & GO-LIVE (BAST)', 'planned_end' => now()->addDays(105)->toDateString(), 'percent' => 20],
             ],
         ]);
+        $p3->update(['work_contract_number' => 'KTR/ICP-TAN/2026/0051', 'work_contract_date' => $d(35),
+            'work_contract_link' => 'https://contoh.sharepoint.com/sites/SolArch/Kontrak/KTR-ICP-TAN-2026-0051.pdf']);
         $t31 = $p3->terms()->where('seq', 1)->value('id');
         $finish($p3, $t31, $d(8), 'ANALISIS DAN DESAIN SELESAI 100%');
         $ba($p3, [$t31], 'BAPS', '40712.BA/STI.01.03/IC010208/2026', 'PEMERIKSAAN DOKUMEN ANALISIS & DESAIN SISTEM', $d(6), [[$teguh, 'Selesai TTD', $d(4)], [$lina, 'Proses TTD', null]]);
@@ -172,9 +197,9 @@ class DemoSeeder extends Seeder
 
         // ===== 4) Pasca Pengadaan: tahap 1 di Invoicing =====
         $p4 = $make(['spp_number' => 'PGJ/2026/BJB/000025', 'spp_date' => $d(62), 'title' => 'CHANGE REQUEST APLIKASI FIELD SERVICE — MODUL ABSENSI TEKNISI', 'summary' => 'MODUL ABSENSI BERBASIS LOKASI UNTUK TEKNISI LAPANGAN.',
-            'method' => 'Kemitraan', 'proc_type' => 'Jasa', 'category' => 'Non Lisensi', 'priority' => 'Urgent', 'sub_bidang' => 'PLN 2', 'pic_pengaju_id' => $bagus->id, 'registered_at' => $d(60),
+            'method' => 'SPP Kemitraan', 'proc_type' => 'Jasa', 'category' => 'Non Lisensi', 'priority' => 'Urgent', 'sub_bidang' => 'PLN 2', 'pic_pengaju_id' => $bagus->id, 'registered_at' => $d(60),
             'pks_id' => $pks->id, 'bak_number' => 'BAK/2026/022', 'bak_date' => $d(61)],
-            [$cc1->id], [$mip->id], $ecp, [['CHANGE REQUEST CR-022 MODUL ABSENSI TEKNISI', 'OPEX', 1, 'LOT (SERVICE & MATERIAL)', 265000000]],
+            [$cc4->id], [$mip->id], $ecp, [['CHANGE REQUEST CR-022 MODUL ABSENSI TEKNISI', 'OPEX', 1, 'LOT (SERVICE & MATERIAL)', 265000000]],
             [['BAK', 'BAK/2026/022', null], ['BCR (Benefit Cost Ratio)', null, 'BCR 122%']]);
         $advanceTo($p4, 'partnership', 59, 52);
         $wf->updateProcess($p4, ['track' => 'pengadaan', 'mode' => 'complete', 'activity' => 'PO Rilis', 'date' => $d(48)]);
@@ -195,11 +220,27 @@ class DemoSeeder extends Seeder
         $wf->updateProcess($p4, ['track' => 'pasca', 'term_id' => $t41, 'mode' => 'update', 'activity' => 'Kelengkapan Dokumen', 'date' => $d(10), 'note' => 'FAKTUR PAJAK MASIH DITUNGGU DARI MITRA.',
             'bucket_number' => '5100027781', 'bucket_code' => 'BKT-2026-0915', 'bucket_link' => 'https://contoh.sharepoint.com/sites/Finance/Bucket/BKT-2026-0915']);
 
+        // ===== 4b) Kemitraan kedua pada PKS yang sama: approval di Manager Sales =====
+        $p4b = $make(['spp_number' => 'PGJ/2026/BJB/000033', 'spp_date' => $d(6), 'title' => 'CHANGE REQUEST APLIKASI ERP — MODUL E-APPROVAL PENGADAAN', 'summary' => 'PENAMBAHAN ALUR PERSETUJUAN ELEKTRONIK UNTUK PENGADAAN PELANGGAN.',
+            'method' => 'SPP Kemitraan', 'proc_type' => 'Jasa', 'category' => 'Non Lisensi', 'priority' => 'Normal', 'sub_bidang' => 'PLN 2', 'pic_pengaju_id' => $bagus->id, 'registered_at' => $d(5),
+            'pks_id' => $pks->id, 'bak_number' => 'BAK/2026/031', 'bak_date' => $d(6)],
+            [$cc4->id], [$mip->id], $ecp, [['CHANGE REQUEST CR-031 MODUL E-APPROVAL PENGADAAN', 'OPEX', 1, 'LOT (SERVICE & MATERIAL)', 860000000]],
+            [['BAK', 'BAK/2026/031', null], ['BCR (Benefit Cost Ratio)', null, 'BCR 130%']]);
+        $advanceTo($p4b, 'sales_mgr', 4, 1);
+
+        // ===== 4c) Kemitraan pada PKS kedua: approval di L1/VP Pengaju =====
+        $p4c = $make(['spp_number' => 'PGJ/2026/BJB/000036', 'spp_date' => $d(4), 'title' => 'PERPANJANGAN LISENSI MONITORING INFRASTRUKTUR 24 BULAN', 'summary' => 'PERPANJANGAN LISENSI PEMANTAUAN INFRASTRUKTUR LAYANAN PELANGGAN.',
+            'method' => 'SPP Kemitraan', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'priority' => 'Normal', 'sub_bidang' => 'PLN 2', 'pic_pengaju_id' => $bagus->id, 'registered_at' => $d(3),
+            'pks_id' => $pks2->id, 'bak_number' => 'BAK/2026/035', 'bak_date' => $d(4)],
+            [$cc4->id], [$mip->id], $ecp, [['LISENSI MONITORING INFRASTRUKTUR - 24 BULAN', 'OPEX', 1, 'LOT (SERVICE & MATERIAL)', 415000000]],
+            [['BAK', 'BAK/2026/035', null], ['BCR (Benefit Cost Ratio)', null, 'BCR 124%']]);
+        $advanceTo($p4c, 'pengaju_vp', 2, 1);
+
         // ===== 5) Selesai: seluruh tahap dibayar =====
         $p5 = $make(['spp_number' => 'SPP/2026/BJB/000019', 'spp_date' => $d(90), 'title' => 'LISENSI TABLEAU CREATOR 50 PENGGUNA', 'summary' => 'LISENSI VISUALISASI DATA UNTUK DASHBOARD PELANGGAN.',
-            'method' => 'SPP', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(88)],
+            'method' => 'SPP Pusat', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung', 'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'pic_pengaju_id' => $dewi->id, 'registered_at' => $d(88)],
             [$cc3->id], [$sln->id], $lic, [['TABLEAU CREATOR - ANNUALLY', 'OPEX', 50, 'User', 7200000]],
-            [['TOR', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 151%']]);
+            [['TOR (Term of Reference)', null, null], ['BCR (Benefit Cost Ratio)', null, 'BCR 151%']]);
         $advanceTo($p5, 'lakdan_staff', 86, 78);
         $wf->updateProcess($p5, ['track' => 'pengadaan', 'mode' => 'complete', 'activity' => 'SP2K Rilis', 'date' => $d(76)]);
         $wf->releaseContract($p5, [

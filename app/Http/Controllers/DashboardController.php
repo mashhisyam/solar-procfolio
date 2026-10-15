@@ -21,8 +21,8 @@ class DashboardController extends Controller
             'rows' => $rows,
             'kpi' => [
                 'active' => $rows->count(),
-                'spp' => $rows->where('method', 'SPP')->count(),
-                'kemitraan' => $rows->where('method', 'Kemitraan')->count(),
+                'spp' => $rows->where('method', 'SPP Pusat')->count(),
+                'kemitraan' => $rows->where('method', 'SPP Kemitraan')->count(),
                 'urgent' => $rows->where('priority', 'Urgent')->count(),
                 'attention' => $rows->filter(fn ($r) => count($r['alerts']) > 0)->count(),
                 'unpaid_terms' => $unpaid->count(),

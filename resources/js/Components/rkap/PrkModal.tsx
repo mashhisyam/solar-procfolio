@@ -5,10 +5,10 @@ import { Button, Field, Input, Modal, MoneyInput, Select, Switch } from '@/Compo
 
 export interface PrkRow { id: number; coa: string; cost_center: string; sub_bidang: string | null; code: string; program: string; klasifikasi: string; year: number | null; active: boolean; budget_amount: number }
 
-/** Tambah atau ubah PRK beserta pagu anggarannya. */
+/** Tambah atau ubah PRK beserta nilai pengajuannya. */
 export default function PrkModal({ item, onClose, defaults }: { item: PrkRow | null | 'new'; onClose: () => void; defaults?: Partial<PrkRow> }) {
   const r = item && item !== 'new' ? item : null;
-  const init = () => ({ coa: r?.coa || '', cost_center: r?.cost_center || defaults?.cost_center || '', sub_bidang: r?.sub_bidang || '', code: r?.code || '', program: r?.program || '', klasifikasi: r?.klasifikasi || 'PRODUKSI LANGSUNG', budget_amount: r?.budget_amount || 0, year: r?.year || new Date().getFullYear(), active: r?.active ?? true });
+  const init = () => ({ coa: r?.coa || '', cost_center: r?.cost_center || defaults?.cost_center || '', sub_bidang: r?.sub_bidang || defaults?.sub_bidang || '', code: r?.code || '', program: r?.program || '', klasifikasi: r?.klasifikasi || 'PRODUKSI LANGSUNG', budget_amount: r?.budget_amount || 0, year: r?.year || new Date().getFullYear(), active: r?.active ?? true });
   const form = useForm(init());
   React.useEffect(() => { if (item) { form.setData(init()); form.clearErrors(); } }, [item]); // eslint-disable-line react-hooks/exhaustive-deps
   const e = form.errors;
@@ -23,7 +23,7 @@ export default function PrkModal({ item, onClose, defaults }: { item: PrkRow | n
         <Field label="Sub bidang" error={e.sub_bidang}><Select value={form.data.sub_bidang} onChange={(x) => form.setData('sub_bidang', x.target.value)}><option value="">–</option><option>PLN 1</option><option>PLN 2</option></Select></Field>
         <Field label="Klasifikasi beban" required error={e.klasifikasi}><Input value={form.data.klasifikasi} onChange={(x) => form.setData('klasifikasi', x.target.value)} /></Field>
         <Field label="Tahun RKAP" error={e.year}><Input type="number" className="num" value={form.data.year || ''} onChange={(x) => form.setData('year', Number(x.target.value))} /></Field>
-        <Field label="Pagu anggaran" required error={e.budget_amount} className="sm:col-span-2"><MoneyInput value={form.data.budget_amount} onChange={(n) => form.setData('budget_amount', n)} /></Field>
+        <Field label="Nilai pengajuan" required error={e.budget_amount} className="sm:col-span-2" hint="Anggaran yang ditetapkan untuk PRK ini."><MoneyInput value={form.data.budget_amount} onChange={(n) => form.setData('budget_amount', n)} /></Field>
         <Switch checked={form.data.active} onChange={(v) => form.setData('active', v)} label="Aktif" />
       </div>
     </Modal>

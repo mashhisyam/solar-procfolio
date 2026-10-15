@@ -23,8 +23,8 @@ export default function BaForm({ procurement: p, ba, defaults, terms, types, pic
   const save = () => (ba ? form.put(`/ba/${ba.id}`) : form.post(`/pengadaan/${p.code}/ba`));
   return (
     <>
-      <Head title={ba ? 'Ubah BA' : 'Tambah BA'} />
-      <PageHeader crumbs={[['Daftar Pengadaan', '/pengadaan'], [p.spp_number || p.code, `/pengadaan/${p.code}?tab=pasca`], [ba ? 'Ubah BA' : 'Tambah BA']]} title={ba ? `Ubah ${ba.type}` : 'Tambah Berita Acara'} desc={`${p.spp_number || p.code} · ${p.title}`}
+      <Head title={ba ? 'Ubah BA' : 'Tambah BA / Lampiran Pekerjaan'} />
+      <PageHeader crumbs={[['Daftar Pengadaan', '/pengadaan'], [p.spp_number || p.code, `/pengadaan/${p.code}?tab=pasca`], [ba ? 'Ubah BA' : 'Tambah BA / Lampiran Pekerjaan']]} title={ba ? `Ubah ${ba.type}` : 'Tambah Berita Acara'} desc={`${p.spp_number || p.code} · ${p.title}`}
         actions={<><Link href={ba ? `/ba/${ba.id}` : `/pengadaan/${p.code}?tab=pasca`}><Button>Batal</Button></Link><Button variant="primary" icon={Save} disabled={form.processing} onClick={save}>Simpan BA</Button></>} />
       <Card className="p-6"><div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Jenis dokumen" required><Select value={d.type} onChange={(x) => form.setData('type', x.target.value)}>{types.map((t) => <option key={t}>{t}</option>)}</Select></Field>

@@ -28,7 +28,7 @@ use Inertia\Response;
 
 class ProcurementController extends Controller
 {
-    public const REQUIRED_DOCS = ['SPP' => ['TOR', 'BCR (Benefit Cost Ratio)'], 'Kemitraan' => ['BAK', 'BCR (Benefit Cost Ratio)']];
+    public const REQUIRED_DOCS = ['SPP Pusat' => ['TOR (Term of Reference)', 'BCR (Benefit Cost Ratio)'], 'SPP Kemitraan' => ['BAK', 'BCR (Benefit Cost Ratio)']];
 
     public function __construct(private ProcurementInsight $insight, private WorkflowService $workflow, private AuditLogger $audit) {}
 
@@ -133,11 +133,11 @@ class ProcurementController extends Controller
     private function validated(Request $request, ?Procurement $existing = null): array
     {
         $draft = $request->boolean('draft');
-        $isSpp = $request->input('method') === 'SPP';
+        $isSpp = $request->input('method') === 'SPP Pusat';
         $hasContract = (bool) $existing?->contract()->exists();
         $data = $request->validate([
             'draft' => ['boolean'],
-            'method' => ['required', Rule::in(['SPP', 'Kemitraan'])],
+            'method' => ['required', Rule::in(['SPP Pusat', 'SPP Kemitraan'])],
             'title' => ['required', 'string', 'max:255'],
             'summary' => ['nullable', 'string'],
             'proc_type' => [$draft ? 'nullable' : 'required', 'string'],
@@ -201,18 +201,18 @@ class ProcurementController extends Controller
         $rab = collect($d['rab_items'] ?? [])->sum(fn ($r) => (float) $r['qty'] * (float) $r['price']);
         $p->fill([
             'spp_number' => $d['spp_number'] ?? null, 'spp_date' => $d['spp_date'] ?? null, 'title' => $d['title'], 'summary' => $d['summary'] ?? null,
-            'method' => $d['method'], 'proc_type' => $d['proc_type'] ?? null, 'category' => $d['category'] ?? null, 'proc_method' => $d['method'] === 'SPP' ? ($d['proc_method'] ?? null) : null,
+            'method' => $d['method'], 'proc_type' => $d['proc_type'] ?? null, 'category' => $d['category'] ?? null, 'proc_method' => $d['method'] === 'SPP Pusat' ? ($d['proc_method'] ?? null) : null,
             'priority' => $d['priority'], 'sub_bidang' => $d['sub_bidang'] ?? null, 'pengaju_name' => (string) Pic::query()->whereKey($d['pic_pengaju_id'] ?? 0)->value('name'),
             'pic_pengaju_id' => $d['pic_pengaju_id'] ?? null,
             // Tanggal registrasi tidak lagi diisi pengguna: otomatis tanggal pengadaan dicatat (tetap saat diedit).
             'registered_at' => $p->registered_at ?? ($d['registered_at'] ?? now()->toDateString()), 'rab_value' => $rab,
-            'pks_id' => $d['method'] === 'Kemitraan' ? ($d['pks_id'] ?? null) : null,
-            'bak_number' => $d['method'] === 'Kemitraan' ? ($d['bak_number'] ?? null) : null,
-            'bak_date' => $d['method'] === 'Kemitraan' ? ($d['bak_date'] ?? null) : null,
+            'pks_id' => $d['method'] === 'SPP Kemitraan' ? ($d['pks_id'] ?? null) : null,
+            'bak_number' => $d['method'] === 'SPP Kemitraan' ? ($d['bak_number'] ?? null) : null,
+            'bak_date' => $d['method'] === 'SPP Kemitraan' ? ($d['bak_date'] ?? null) : null,
             'is_draft' => (bool) ($d['draft'] ?? false),
         ]);
         if (! $p->exists || ! $p->contract()->exists()) {
-            $flow = collect($d['workflow'] ?? ($d['method'] === 'SPP' ? WorkflowService::applyRouting(WorkflowTemplate::stagesFor('SPP'), $d['proc_method'] ?? null) : WorkflowTemplate::stagesFor($d['method'])))->map(fn ($s) => [
+            $flow = collect($d['workflow'] ?? ($d['method'] === 'SPP Pusat' ? WorkflowService::applyRouting(WorkflowTemplate::stagesFor('SPP Pusat'), $d['proc_method'] ?? null) : WorkflowTemplate::stagesFor($d['method'])))->map(fn ($s) => [
                 'key' => $s['key'], 'name' => $s['name'], 'group' => $s['group'] ?? null, 'enabled' => (bool) ($s['enabled'] ?? true), 'optional' => (bool) ($s['optional'] ?? false),
                 'pic_id' => $s['pic_id'] ?? null, 'default_activities' => $s['default_activities'] ?? [],
             ])->values()->all();
@@ -280,7 +280,7 @@ class ProcurementController extends Controller
                         'budget_amount' => (float) $b->budget_amount, 'used' => $used[$b->id] ?? 0.0,
                     ]);
                 })(),
-                'templates' => ['SPP' => WorkflowTemplate::stagesFor('SPP'), 'Kemitraan' => WorkflowTemplate::stagesFor('Kemitraan')],
+                'templates' => ['SPP Pusat' => WorkflowTemplate::stagesFor('SPP Pusat'), 'SPP Kemitraan' => WorkflowTemplate::stagesFor('SPP Kemitraan')],
             ],
         ];
     }
