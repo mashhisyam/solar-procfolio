@@ -8,6 +8,7 @@ use App\Models\Procurement;
 use App\Services\DashboardStats;
 use App\Services\ProcurementInsight;
 use App\Support\Period;
+use App\Support\Scheme;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,7 +22,7 @@ class DashboardController extends Controller
     public function __invoke(Request $request, DashboardStats $stats): Response
     {
         $f = [
-            'method' => in_array($request->query('skema'), ['SPP Pusat', 'SPP Kemitraan'], true) ? (string) $request->query('skema') : '',
+            'method' => in_array($request->query('skema'), Scheme::ALL, true) ? (string) $request->query('skema') : '',
             'priority' => in_array($request->query('prioritas'), ['Urgent', 'Normal'], true) ? (string) $request->query('prioritas') : '',
             'pengaju' => (int) $request->query('pengaju', 0),
             'cc' => (int) $request->query('perjanjian', 0),

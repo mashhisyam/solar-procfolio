@@ -8,8 +8,7 @@ class MasterItem extends Model
 {
     /** Kelompok master daftar beserta label tampilannya. */
     public const GROUPS = [
-        'proc_method' => 'Metode pengadaan (SPP)',
-        'proc_type' => 'Jenis pengadaan',
+        'proc_method' => 'Metode pengadaan (SPP Pusat & SPR)',
         'proc_category' => 'Kategori pengadaan',
         'activity' => 'Kategori aktivitas',
         'doc_type' => 'Jenis dokumen',

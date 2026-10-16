@@ -4,6 +4,7 @@ import { Pencil, ClipboardList } from 'lucide-react';
 import { Badge, Button, Card, CardHead, EmptyState, KV, cx } from '@/Components/ui';
 import { PageHeader, PagedProcTable } from '@/Components/common';
 import { rp } from '@/lib/format';
+import { useAccess } from '@/lib/access';
 import type { PageProps, ProcRow } from '@/types';
 import PrkModal, { type PrkRow } from '@/Components/rkap/PrkModal';
 
@@ -12,6 +13,7 @@ interface Prk extends PrkRow { used: number; remaining: number; percent: number 
 /** Detail PRK: nilai pengajuan, nilai digunakan, sisa, persentase, dan daftar pengadaan yang memakainya. */
 export default function RkapShow({ prk, rows }: { prk: Prk; rows: ProcRow[] }) {
   const { auth } = usePage<PageProps>().props;
+  const access = useAccess();
   const [edit, setEdit] = useState(false);
   const pct = prk.budget_amount > 0 ? Math.min(100, (prk.used / prk.budget_amount) * 100) : prk.used > 0 ? 100 : 0;
   return (
@@ -19,7 +21,7 @@ export default function RkapShow({ prk, rows }: { prk: Prk; rows: ProcRow[] }) {
       <Head title={`PRK ${prk.code}`} />
       <PageHeader crumbs={[['RKAP', '/rkap'], [prk.code]]} title={prk.code} desc={prk.program}
         meta={<>{prk.sub_bidang && <Badge tone="navy">{prk.sub_bidang}</Badge>}{prk.remaining < 0 && <Badge tone="bad">Anggaran minus {rp(-prk.remaining)}</Badge>}</>}
-        actions={auth.can.edit && <Button icon={Pencil} onClick={() => setEdit(true)}>Ubah PRK</Button>} />
+        actions={access.canEdit('rkap') && <Button icon={Pencil} onClick={() => setEdit(true)}>Ubah PRK</Button>} />
       <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <Card className="xl:col-span-2"><CardHead title="Identitas PRK" />
           <div className="p-5"><KV cols={3} items={[['Kode anggaran', prk.code], ['COA', prk.coa], ['Cost center', prk.cost_center], ['Sub bidang', prk.sub_bidang || '–'], ['Klasifikasi beban', prk.klasifikasi], ['Tahun RKAP', prk.year ? String(prk.year) : '–']]} /></div>

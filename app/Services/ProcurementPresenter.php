@@ -39,7 +39,7 @@ class ProcurementPresenter
         return [
             'procurement' => [
                 'code' => $p->code, 'spp_number' => $p->spp_number, 'spp_date' => Cal::iso($p->spp_date), 'title' => $p->title, 'summary' => $p->summary,
-                'method' => $p->method, 'proc_type' => $p->proc_type, 'category' => $p->category, 'proc_method' => $p->proc_method, 'priority' => $p->priority,
+                'method' => $p->method, 'category' => $p->category, 'proc_method' => $p->proc_method, 'priority' => $p->priority,
                 'sub_bidang' => $p->sub_bidang, 'pengaju_name' => $p->pengaju_name, 'registered_at' => Cal::iso($p->registered_at),
                 'rab_value' => (float) $p->rab_value, 'is_draft' => $p->is_draft, 'cancelled' => (bool) $p->cancelled_at, 'cancel_reason' => $p->cancel_reason,
                 'cancel_type' => $p->cancel_type, 'cancelled_at' => Cal::iso($p->cancelled_at),
@@ -47,7 +47,7 @@ class ProcurementPresenter
                 'stop_option' => WorkflowService::stopTypeFor($p),
                 'status' => $i->status($p), 'post_state' => $i->postState($p), 'process_days' => $i->processDays($p),
                 'last_update' => $row['last_update'], 'last_update_days' => $row['last_update_days'],
-                'bak_number' => $p->bak_number, 'bak_date' => Cal::iso($p->bak_date), 'pa_number' => $p->pa_number,
+                'bak_number' => $p->bakDocument()?->number, 'bak_date' => Cal::iso($p->bakDocument()?->date), 'pa_number' => $p->pa_number,
                 'pks' => $pk ? ['id' => $pk->id, 'number' => $pk->number, 'title' => $pk->title, 'partner' => $pk->partner?->name, ...$pk->effective()] : null,
                 'candidate_vendors' => $p->candidateVendors->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values(),
                 'vendor_id' => $p->vendor_id,
@@ -78,6 +78,7 @@ class ProcurementPresenter
             ] : null,
             'contract' => $p->contract ? $this->contract($p->contract) : null,
             'work_contract' => $p->workContract ? $this->contract($p->workContract) : null,
+            'revision' => $i->revision($p),
             'terms' => $i->termFlows($p)->map(function ($f) use ($i, $p, $plans, $bas) {
                 $t = $f['t'];
                 $late = $f['cur']?->stage_key === 'pelaksanaan' && ! $f['scheduled'] && ($plans[$t->id]['end'] ?? null)

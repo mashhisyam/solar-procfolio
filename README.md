@@ -36,7 +36,10 @@ Jadwal tahap dihitung dari tanggal kick off dan rencana tanggal selesai tiap tah
 ## Aturan utama
 
 - Nomor SPP wajib diisi sejak registrasi, termasuk saat menyimpan draft.
-- Setiap pengadaan wajib punya dasar pelanggan: minimal satu perjanjian pelanggan (Berita Acara Kesepakatan Biaya, Kontrak Perjanjian, Surat Penugasan) atau nomor PA (Project Activation). PA tidak memiliki detail; cukup nomornya di pengadaan.
+- Skema pengadaan: **SPP Pusat** (Pengaju → Sales → Anggaran → Manager Pengadaan → Rendan/Lakdan → SP2K), **SPP Kemitraan** (Pengaju → Sales → Anggaran → Partnership → PO), dan **SPR** (User Pengaju → Manager Pengaju → Manager Pengadaan → SP2K → Pelaksanaan Pekerjaan). Metode pengadaan hanya untuk SPP Pusat.
+- Kategori pengadaan: Barang (Non Lisensi), Barang (Lisensi), Jasa, Barang Jasa (Supply Erect), Sewa.
+- Setiap pengadaan wajib merujuk minimal satu perjanjian pelanggan (Berita Acara Kesepakatan Biaya, Kontrak Perjanjian, Surat Penugasan). Nomor PA (Project Activation) opsional dan dapat dilengkapi saat approval Sales. BAK SPP Kemitraan dicatat di Dokumen Referensi.
+- Pengadaan yang dikembalikan (Revisi Mayor merah, Revisi Minor kuning) ditandai di detail, Daftar Pengadaan, dan Dashboard beserta lama menunggu perbaikan.
 - Setiap pengadaan memakai satu PRK. RAB diisi per baris (deskripsi, tipe anggaran, jumlah, satuan, harga) dan nilainya dihitung otomatis.
 - Setiap pengadaan memiliki kategori (Lisensi/Non Lisensi, dari master).
 - Dashboard tidak memuat daftar pengadaan. Isinya: jumlah pengadaan aktif/Urgent/Butuh Perhatian/Selesai, RAB Usulan Pengadaan, RAB Realisasi (nilai SP2K/PO setelah PPN), Revenue, Revenue vs Cost per perjanjian pelanggan (Revenue, RAB Pengadaan, Nilai SP2K), persebaran pengadaan aktif per posisi, dan Top 5 (waktu proses, nilai SP2K/PO, proses approval, vendor pemenang).
@@ -51,6 +54,8 @@ Jadwal tahap dihitung dari tanggal kick off dan rencana tanggal selesai tiap tah
 - Isian teks bebas otomatis ditulis dengan huruf kapital.
 - Alert durasi Proses Pengadaan: hijau 0–4 hari kerja, kuning 5–6, merah 7 ke atas. Ambangnya diatur di Master.
 - Perubahan penting tercatat di audit log yang bersifat append-only.
+- RBAC: peran **Super Admin** dan **Admin**; hak akses Admin per menu diatur di **Kelola Pengguna**. Matriks lengkap di `docs/ROLE-MATRIX.md`. Akun pemilik awal: `superadmin@admin.com` dan `admin@admin.com` (kata sandi awal dapat diganti lewat `PROCFOLIO_SUPERADMIN_PASSWORD` / `PROCFOLIO_ADMIN_PASSWORD`). Hanya Super Admin yang dapat menghapus pengadaan.
+- Pengadaan tidak dapat dihapus. Pengadaan yang berhenti dicatat sebagai **Pengadaan Dibatalkan** bila belum pernah masuk unit pengadaan (masih di Pengaju, Sales, atau Anggaran), atau **Pengadaan Gagal** bila sudah pernah masuk (Manager Pengadaan, Rendan, Lakdan, Partnership). Jenisnya ditentukan sistem, alasan wajib, data tetap tersimpan dan dihitung tersendiri di Dashboard. Setelah SP2K/PO rilis, pengadaan tidak dapat dibatalkan atau dinyatakan gagal.
 
 ## Teknologi
 

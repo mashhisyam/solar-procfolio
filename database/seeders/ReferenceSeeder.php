@@ -10,6 +10,7 @@ use App\Models\MasterItem;
 use App\Models\Pic;
 use App\Models\User;
 use App\Models\WorkflowTemplate;
+use App\Support\OwnerAccounts;
 use Illuminate\Database\Seeder;
 
 /** Master data awal Procfolio: daftar pilihan, template alur, parameter alert, kalender 2026, kode anggaran, akun admin. */
@@ -19,8 +20,8 @@ class ReferenceSeeder extends Seeder
     {
         $lists = [
             'proc_method' => ['Pengadaan Langsung', 'Penunjukan Langsung', 'Tender Terbatas', 'Tender Terbuka', 'Seleksi Langsung'],
-            'proc_type' => ['Barang', 'Jasa', 'Barang & Jasa', 'Sewa'],
-            'proc_category' => ['Lisensi', 'Non Lisensi'],
+            // Jenis pengadaan sudah digabung ke kategori (revisi 21 Okt 2026).
+            'proc_category' => ['Barang (Non Lisensi)', 'Barang (Lisensi)', 'Jasa', 'Barang Jasa (Supply Erect)', 'Sewa'],
             'activity' => ['Review Dokumen', 'Approval', 'Disposisi', 'Klarifikasi', 'Penyusunan RKS', 'Negosiasi', 'SP2K Rilis', 'PO Rilis',
                 'Pekerjaan Berjalan', 'Penyusunan BA', 'Sirkuler TTD', 'Pengajuan GR', 'Posting GR', 'Penerimaan Invoice', 'Kelengkapan Dokumen',
                 'Verifikasi Dokumen', 'Penjadwalan Pembayaran', 'Pembuatan BA', 'Sirkuler BA', 'Revisi BA', 'BA Fully Sign', 'Lainnya'],
@@ -55,16 +56,22 @@ class ReferenceSeeder extends Seeder
             ['anggaran_vp', 'L1/VP Anggaran', 'Anggaran', false, true, $review],
             ['anggaran_dir', 'Direktur Anggaran', 'Anggaran', true, false, $review],
         ];
+        $procurementUnit = [
+            ['pengadaan_mgr', 'Manager Pengadaan', 'Manager Pengadaan', false, true, ['Review Dokumen', 'Disposisi', 'Klarifikasi']],
+            ['rendan_spv', 'SPV Rendan', 'Perencana Pengadaan', false, true, ['Review Dokumen', 'Penyusunan RKS', 'Klarifikasi']],
+            ['rendan_staff', 'Staff Rendan', 'Perencana Pengadaan', false, true, ['Penyusunan RKS', 'Klarifikasi']],
+            ['lakdan_spv', 'SPV Lakdan', 'Pelaksana Pengadaan', false, true, ['Review Dokumen', 'Klarifikasi', 'Negosiasi']],
+            ['lakdan_staff', 'Staff Lakdan', 'Pelaksana Pengadaan', false, true, ['Klarifikasi', 'Negosiasi', 'SP2K Rilis']],
+        ];
         $tpl = [
             // Setelah Anggaran, semua pengadaan masuk ke Manager Pengadaan. Selanjutnya (default menurut metode, lihat WorkflowService::applyRouting):
             // Pengadaan Langsung: Manager Pengadaan -> SPV Lakdan -> Staff Lakdan
             // Metode lain:        Manager Pengadaan -> SPV Rendan -> Staff Rendan -> SPV Lakdan -> Staff Lakdan
-            'SPP Pusat' => [...$pengaju, ...$sales, ...$anggaran,
-                ['pengadaan_mgr', 'Manager Pengadaan', 'Manager Pengadaan', false, true, ['Review Dokumen', 'Disposisi', 'Klarifikasi']],
-                ['rendan_spv', 'SPV Rendan', 'Perencana Pengadaan', false, true, ['Review Dokumen', 'Penyusunan RKS', 'Klarifikasi']],
-                ['rendan_staff', 'Staff Rendan', 'Perencana Pengadaan', false, true, ['Penyusunan RKS', 'Klarifikasi']],
-                ['lakdan_spv', 'SPV Lakdan', 'Pelaksana Pengadaan', false, true, ['Review Dokumen', 'Klarifikasi', 'Negosiasi']],
-                ['lakdan_staff', 'Staff Lakdan', 'Pelaksana Pengadaan', false, true, ['Klarifikasi', 'Negosiasi', 'SP2K Rilis']],
+            'SPP Pusat' => [...$pengaju, ...$sales, ...$anggaran, ...$procurementUnit],
+            // SPR: User Pengaju -> Manager Pengaju -> Manager Pengadaan, lalu SP2K rilis dan langsung Pelaksanaan Pekerjaan.
+            // Tanpa L1/VP Pengaju, Sales, Anggaran, Rendan maupun Lakdan.
+            'SPR' => [$pengaju[0], $pengaju[1],
+                ['pengadaan_mgr', 'Manager Pengadaan', 'Manager Pengadaan', false, true, ['Review Dokumen', 'Disposisi', 'Klarifikasi', 'SP2K Rilis']],
             ],
             'SPP Kemitraan' => [...$pengaju, ...$sales, ...$anggaran,
                 ['partnership', 'Partnership', 'Partnership', false, true, ['Review Dokumen', 'Klarifikasi', 'Negosiasi', 'PO Rilis']],
@@ -120,9 +127,8 @@ class ReferenceSeeder extends Seeder
         $icon = Company::query()->firstOrCreate(['name' => 'PT Indonesia Comnets Plus'], ['type' => 'Internal', 'active' => true]);
         $admin = Pic::query()->firstOrCreate(['email' => 'admin@procfolio.local'], ['name' => 'Admin Procfolio', 'title' => 'Administrator', 'company_id' => $icon->id, 'role' => 'Solution Architect', 'active' => true]);
 
-        // Akun admin awal untuk login lokal (ganti kata sandi atau nonaktifkan setelah SSO berjalan).
-        User::query()->firstOrCreate(['email' => 'admin@procfolio.local'], [
-            'name' => 'Admin Procfolio', 'password' => 'procfolio123', 'role' => 'admin', 'pic_id' => $admin->id, 'active' => true,
-        ]);
+        // Akun pemilik awal: superadmin@admin.com (Super Admin) dan admin@admin.com (Admin, seluruh menu).
+        OwnerAccounts::ensure();
+        User::query()->whereIn('email', User::OWNER_EMAILS)->whereNull('pic_id')->update(['pic_id' => $admin->id]);
     }
 }

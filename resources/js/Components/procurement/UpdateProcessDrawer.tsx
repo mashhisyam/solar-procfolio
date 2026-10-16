@@ -30,9 +30,13 @@ const TONE_BTN: Record<Tone, string> = { brand: '', warn: '!bg-warn !text-white 
 interface Props {
   open: boolean; onClose: () => void; code: string; track: 'pengadaan' | 'pasca'; term?: Term | null; current: CurrentVisit | null;
   stages: StageDef[]; pics: Pic[]; activities: string[]; finalLabel: string; initialMode?: Mode; grTypes?: string[];
+  /** Tampilkan isian nomor PA (tahap Sales, nomor PA belum diisi). */
+  askPa?: boolean;
 }
 
-export default function UpdateProcessDrawer({ open, onClose, code, track, term, current: v, stages, pics, activities, finalLabel, initialMode = 'update', grTypes = ['BAST', 'BAPS', 'BA Rekon', 'BAUK'] }: Props) {
+export default function UpdateProcessDrawer({ open, onClose, code, track, term, current: v, stages, pics, activities, finalLabel, initialMode = 'update', grTypes = ['BAST', 'BAPS', 'BA Rekon', 'BAUK'], askPa = false }: Props) {
+  const [pa, setPa] = useState('');
+  useEffect(() => { if (open) setPa(''); }, [open]);
   const { app, errors } = usePage<PageProps>().props;
   const list = stages.filter((s) => s.enabled);
   const idx = v ? list.findIndex((s) => s.key === v.stage_key) : -1;
@@ -71,7 +75,7 @@ export default function UpdateProcessDrawer({ open, onClose, code, track, term, 
     const extra = track === 'pasca' && mode === 'complete' && v.stage_key === 'gr' ? { gr_number: f.gr_number, gr_type: f.gr_type, gr_amount: f.gr_amount, gr_link: f.gr_link }
       : track === 'pasca' && mode === 'complete' && v.stage_key === 'invoice' && f.invoice_number.trim() ? { invoice_number: f.invoice_number, invoice_date: f.invoice_date, invoice_amount: f.invoice_amount } : {};
     const bucket = track === 'pasca' && v.stage_key === 'invoice' && (mode === 'update' || mode === 'complete') ? { bucket_code: f.bucket_code || null, bucket_number: f.bucket_number || null, bucket_link: f.bucket_link || null } : {};
-    router.post(`/pengadaan/${code}/proses`, { track, term_id: term?.id ?? null, mode, activity: f.activity, pic_id: f.pic_id, date: f.date, note: f.note, target_pic_id: f.target_pic_id, target: targetDef?.key ?? f.target, ...extra, ...bucket }, {
+    router.post(`/pengadaan/${code}/proses`, { track, term_id: term?.id ?? null, mode, activity: f.activity, pic_id: f.pic_id, date: f.date, note: f.note, target_pic_id: f.target_pic_id, target: targetDef?.key ?? f.target, ...extra, ...bucket, ...(askPa && pa.trim() ? { pa_number: pa } : {}) }, {
       preserveScroll: true, onSuccess: () => onClose(), onFinish: () => setBusy(false),
     });
   };
@@ -103,6 +107,11 @@ export default function UpdateProcessDrawer({ open, onClose, code, track, term, 
         <Field label={track === 'pasca' && isLast ? 'Tanggal pembayaran' : 'Tanggal kegiatan'} required error={errors.date}><Input type="date" value={f.date} onChange={(e) => set('date', e.target.value)} invalid={!!errors.date} /></Field>
         {(mode === 'return' || mode === 'move') && (
           <Field label={mode === 'return' ? 'Kembalikan ke tahap' : 'Pindah ke tahap'} required error={errors.target}><Select value={f.target} onChange={(e) => set('target', e.target.value)}>{targets.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}</Select></Field>
+        )}
+        {askPa && track === 'pengadaan' && !['rev_minor', 'rev_major'].includes(mode) && (
+          <Field label="Nomor PA (Project Activation)" className="sm:col-span-2" error={errors.pa_number} hint="Nomor PA belum diisi saat registrasi. Lengkapi di sini bila sudah terbit.">
+            <Input value={pa} onChange={(e) => setPa(e.target.value)} placeholder="Contoh: PA/NDU/2026/004" />
+          </Field>
         )}
         {mode !== 'update' && targetDef && <Field label={`PIC ${targetDef.name}`}><PicSelect pics={pics} roles={[targetDef.name]} value={f.target_pic_id} onChange={(x) => set('target_pic_id', x)} /></Field>}
         {track === 'pasca' && v.stage_key === 'gr' && mode === 'complete' && (

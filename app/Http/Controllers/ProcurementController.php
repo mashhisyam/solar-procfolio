@@ -18,6 +18,7 @@ use App\Services\ProcurementInsight;
 use App\Services\ProcurementPresenter;
 use App\Services\WorkflowService;
 use App\Support\Period;
+use App\Support\Scheme;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,12 @@ use Inertia\Response;
 
 class ProcurementController extends Controller
 {
-    public const REQUIRED_DOCS = ['SPP Pusat' => ['TOR (Term of Reference)', 'BCR (Benefit Cost Ratio)'], 'SPP Kemitraan' => ['BAK', 'BCR (Benefit Cost Ratio)']];
+    /** Dokumen referensi wajib per skema. BAK SPP Kemitraan dicatat di sini (nomor wajib), bukan di langkah Perjanjian Pelanggan. */
+    public const REQUIRED_DOCS = [
+        Scheme::SPP => ['TOR (Term of Reference)', 'BCR (Benefit Cost Ratio)'],
+        Scheme::KEMITRAAN => ['BAK', 'BCR (Benefit Cost Ratio)'],
+        Scheme::SPR => ['TOR (Term of Reference)', 'BCR (Benefit Cost Ratio)'],
+    ];
 
     public function __construct(private ProcurementInsight $insight, private WorkflowService $workflow, private AuditLogger $audit) {}
 
@@ -44,6 +50,7 @@ class ProcurementController extends Controller
             ])->values(),
             'filters' => [
                 'procMethods' => MasterItem::labels('proc_method'),
+                'categories' => MasterItem::labels('proc_category'),
                 'customerContracts' => CustomerContract::query()->orderBy('number')->get(['id', 'kind', 'number']),
                 'stages' => collect(WorkflowTemplate::query()->orderBy('sort')->get(['scheme', 'key', 'name']))->groupBy('scheme'),
             ],
@@ -61,8 +68,8 @@ class ProcurementController extends Controller
 
         return Inertia::render('Procurements/Form', [
             'procurement' => [
-                ...$p->only(['code', 'spp_number', 'title', 'summary', 'method', 'proc_type', 'category', 'proc_method', 'priority', 'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'rab_value', 'pks_id', 'bak_number', 'pa_number', 'is_draft', 'workflow']),
-                'spp_date' => Cal::iso($p->spp_date), 'registered_at' => Cal::iso($p->registered_at), 'bak_date' => Cal::iso($p->bak_date),
+                ...$p->only(['code', 'spp_number', 'title', 'summary', 'method', 'category', 'proc_method', 'priority', 'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'rab_value', 'pks_id', 'pa_number', 'is_draft', 'workflow']),
+                'spp_date' => Cal::iso($p->spp_date), 'registered_at' => Cal::iso($p->registered_at),
                 'candidate_vendor_ids' => $p->candidateVendors->pluck('id'), 'customer_contract_ids' => $p->customerContracts->pluck('id'),
                 'budget_code_id' => $p->budgetCodes->first()?->id, 'has_contract' => (bool) $p->contract,
                 'rab_items' => $p->rabItems->map(fn ($r) => ['description' => $r->description, 'budget_type' => $r->budget_type, 'qty' => (float) $r->qty, 'unit' => $r->unit, 'price' => (float) $r->price]),
@@ -94,7 +101,7 @@ class ProcurementController extends Controller
         $data = $this->validated($request, $procurement);
         DB::transaction(function () use ($procurement, $data) {
             $wasDraft = $procurement->is_draft;
-            foreach (['title' => 'Judul', 'spp_number' => 'Nomor SPP', 'priority' => 'Prioritas', 'proc_method' => 'Metode pengadaan', 'category' => 'Kategori pengadaan', 'pic_pengaju_id' => 'User Pengaju', 'pa_number' => 'Nomor PA'] as $k => $label) {
+            foreach (['title' => 'Judul', 'spp_number' => 'Nomor pengajuan', 'priority' => 'Prioritas', 'proc_method' => 'Metode pengadaan', 'category' => 'Kategori pengadaan', 'pic_pengaju_id' => 'User Pengaju', 'pa_number' => 'Nomor PA'] as $k => $label) {
                 if ((string) $procurement->{$k} !== (string) ($data[$k] ?? '')) {
                     $this->audit->log($procurement->id, 'Pengadaan', $procurement->code, 'Ubah identitas', $label, $procurement->{$k}, $data[$k] ?? null);
                 }
@@ -130,35 +137,55 @@ class ProcurementController extends Controller
         return $this->done('Pengadaan diaktifkan kembali.');
     }
 
+    /**
+     * Hapus pengadaan beserta seluruh data turunannya. Hanya Super Admin; wajib alasan dan konfirmasi nomor SPP/ID.
+     * Riwayat audit tetap disimpan (tanpa tautan ke pengadaan) dan dicatat satu entri penghapusan.
+     */
+    public function destroy(Request $request, Procurement $procurement): RedirectResponse
+    {
+        $d = $request->validate(['reason' => ['required', 'string', 'min:5'], 'confirm' => ['required', 'string']], [], ['reason' => 'alasan', 'confirm' => 'konfirmasi']);
+        $expected = $procurement->spp_number ?: $procurement->code;
+        if (mb_strtoupper(trim($d['confirm'])) !== mb_strtoupper($expected)) {
+            throw ValidationException::withMessages(['confirm' => "Ketik {$expected} untuk mengonfirmasi penghapusan."]);
+        }
+        $label = trim("{$procurement->code} · ".($procurement->spp_number ?? '-')." · {$procurement->title}");
+        DB::transaction(function () use ($procurement, $d, $label) {
+            $this->audit->log(null, 'Pengadaan', $procurement->code, 'Hapus pengadaan', 'Pengadaan', $label, null, $d['reason']);
+            $procurement->delete();
+        });
+
+        return redirect('/pengadaan')->with('success', "Pengadaan {$label} dihapus.");
+    }
+
     /** @return array<string, mixed> */
     private function validated(Request $request, ?Procurement $existing = null): array
     {
         $draft = $request->boolean('draft');
-        $isSpp = $request->input('method') === 'SPP Pusat';
+        $method = (string) $request->input('method');
+        // SPP Pusat dan SPR: nomor & tanggal pengajuan wajib. Metode pengadaan hanya SPP Pusat. SPP Kemitraan: PKS wajib.
+        $isSpp = Scheme::viaProcurementUnit($method);
+        $usesMethod = Scheme::usesProcMethod($method);
         $hasContract = (bool) $existing?->contract()->exists();
         $data = $request->validate([
             'draft' => ['boolean'],
-            'method' => ['required', Rule::in(['SPP Pusat', 'SPP Kemitraan'])],
+            'method' => ['required', Rule::in(Scheme::ALL)],
             'title' => ['required', 'string', 'max:255'],
             'summary' => ['nullable', 'string'],
-            'proc_type' => [$draft ? 'nullable' : 'required', 'string'],
-            'proc_method' => [$isSpp && ! $draft ? 'required' : 'nullable', 'string'],
+            'proc_method' => [$usesMethod && ! $draft ? 'required' : 'nullable', 'nullable', 'string'],
             'priority' => ['required', Rule::in(['Normal', 'Urgent'])],
             'sub_bidang' => ['nullable', 'string', 'max:20'],
             'registered_at' => ['nullable', 'date'],
-            'category' => [$draft ? 'nullable' : 'required', 'nullable', 'string', 'max:60'],
+            'category' => [$draft ? 'nullable' : 'required', 'nullable', 'string', 'max:60', Rule::in(MasterItem::query()->where('group', 'proc_category')->pluck('label')->all())],
             'spp_number' => [$isSpp ? 'required' : 'nullable', 'string', 'max:100'],
             'spp_date' => [$isSpp && ! $draft ? 'required' : 'nullable', 'date'],
             'pic_pengaju_id' => [$draft ? 'nullable' : 'required', 'nullable', 'exists:pics,id'],
             'candidate_vendor_ids' => [$draft ? 'nullable' : 'required', 'array', $draft ? 'min:0' : 'min:1'],
             'candidate_vendor_ids.*' => ['integer', 'exists:companies,id'],
-            // Dasar pelanggan wajib: minimal satu perjanjian pelanggan, atau nomor PA (dicek di bawah).
-            'customer_contract_ids' => ['nullable', 'array'],
+            // Perjanjian pelanggan wajib minimal satu; nomor PA opsional sebagai pelengkap.
+            'customer_contract_ids' => [$draft ? 'nullable' : 'required', 'array', $draft ? 'min:0' : 'min:1'],
             'customer_contract_ids.*' => ['integer', 'exists:customer_contracts,id'],
             'pa_number' => ['nullable', 'string', 'max:255'],
-            'pks_id' => [! $isSpp && ! $draft ? 'required' : 'nullable', 'nullable', 'exists:pks,id'],
-            'bak_number' => [! $isSpp && ! $draft ? 'required' : 'nullable', 'nullable', 'string'],
-            'bak_date' => ['nullable', 'date'],
+            'pks_id' => [$method === Scheme::KEMITRAAN && ! $draft ? 'required' : 'nullable', 'nullable', 'exists:pks,id'],
             'ref_docs' => ['array'],
             'ref_docs.*.doc_type' => ['required', Rule::in(Document::REFERENCE_TYPES)],
             'ref_docs.*.number' => ['nullable', 'string'],
@@ -190,8 +217,11 @@ class ProcurementController extends Controller
         ], [], ['candidate_vendor_ids' => 'calon vendor', 'budget_code_id' => 'PRK', 'pic_pengaju_id' => 'User Pengaju', 'rab_items' => 'RAB', 'customer_contract_ids' => 'perjanjian pelanggan']);
 
         if (! $draft) {
-            if (empty($data['customer_contract_ids']) && blank($data['pa_number'] ?? null)) {
-                throw ValidationException::withMessages(['customer_contract_ids' => 'Pilih minimal satu perjanjian pelanggan atau isi nomor PA (Project Activation).']);
+            if ($method === Scheme::KEMITRAAN) {
+                $bak = collect($data['documents'] ?? [])->firstWhere('doc_type', 'BAK');
+                if (! $bak || blank($bak['number'] ?? null)) {
+                    throw ValidationException::withMessages(['documents' => 'Nomor BAK wajib diisi di Dokumen Referensi.']);
+                }
             }
             if (! $hasContract && ! collect($data['workflow'] ?? [])->contains(fn ($s) => $s['enabled'] ?? true)) {
                 throw ValidationException::withMessages(['workflow' => 'Minimal satu tahap aktif.']);
@@ -207,19 +237,17 @@ class ProcurementController extends Controller
         $rab = collect($d['rab_items'] ?? [])->sum(fn ($r) => (float) $r['qty'] * (float) $r['price']);
         $p->fill([
             'spp_number' => $d['spp_number'] ?? null, 'spp_date' => $d['spp_date'] ?? null, 'title' => $d['title'], 'summary' => $d['summary'] ?? null,
-            'method' => $d['method'], 'proc_type' => $d['proc_type'] ?? null, 'category' => $d['category'] ?? null, 'proc_method' => $d['method'] === 'SPP Pusat' ? ($d['proc_method'] ?? null) : null,
+            'method' => $d['method'], 'category' => $d['category'] ?? null, 'proc_method' => Scheme::usesProcMethod($d['method']) ? ($d['proc_method'] ?? null) : null,
             'priority' => $d['priority'], 'sub_bidang' => $d['sub_bidang'] ?? null, 'pengaju_name' => (string) Pic::query()->whereKey($d['pic_pengaju_id'] ?? 0)->value('name'),
             'pic_pengaju_id' => $d['pic_pengaju_id'] ?? null,
             // Tanggal registrasi tidak lagi diisi pengguna: otomatis tanggal pengadaan dicatat (tetap saat diedit).
             'registered_at' => $p->registered_at ?? ($d['registered_at'] ?? now()->toDateString()), 'rab_value' => $rab,
             'pks_id' => $d['method'] === 'SPP Kemitraan' ? ($d['pks_id'] ?? null) : null,
-            'bak_number' => $d['method'] === 'SPP Kemitraan' ? ($d['bak_number'] ?? null) : null,
-            'bak_date' => $d['method'] === 'SPP Kemitraan' ? ($d['bak_date'] ?? null) : null,
             'pa_number' => filled($d['pa_number'] ?? null) ? trim($d['pa_number']) : null,
             'is_draft' => (bool) ($d['draft'] ?? false),
         ]);
         if (! $p->exists || ! $p->contract()->exists()) {
-            $flow = collect($d['workflow'] ?? ($d['method'] === 'SPP Pusat' ? WorkflowService::applyRouting(WorkflowTemplate::stagesFor('SPP Pusat'), $d['proc_method'] ?? null) : WorkflowTemplate::stagesFor($d['method'])))->map(fn ($s) => [
+            $flow = collect($d['workflow'] ?? (Scheme::usesProcMethod($d['method']) ? WorkflowService::applyRouting(WorkflowTemplate::stagesFor($d['method']), $d['proc_method'] ?? null) : WorkflowTemplate::stagesFor($d['method'])))->map(fn ($s) => [
                 'key' => $s['key'], 'name' => $s['name'], 'group' => $s['group'] ?? null, 'enabled' => (bool) ($s['enabled'] ?? true), 'optional' => (bool) ($s['optional'] ?? false),
                 'pic_id' => $s['pic_id'] ?? null, 'default_activities' => $s['default_activities'] ?? [],
             ])->values()->all();
@@ -245,7 +273,7 @@ class ProcurementController extends Controller
             $row = [
                 'doc_type' => $doc['doc_type'], 'number' => $doc['number'] ?? null, 'title' => $doc['title'] ?? $doc['doc_type'], 'date' => $doc['date'] ?? null,
                 'required' => (bool) ($doc['required'] ?? false), 'link' => $doc['link'] ?? null, 'note' => $doc['note'] ?? null,
-                'available' => (bool) ($doc['available'] ?? false) || ! empty($doc['link']),
+                'available' => (bool) ($doc['available'] ?? false) || ! empty($doc['link']) || ($doc['doc_type'] === 'BAK' && filled($doc['number'] ?? null)),
             ];
             $m = ! empty($doc['id']) ? $p->documents()->whereKey($doc['id'])->first() : null;
             if ($m) {
@@ -272,7 +300,6 @@ class ProcurementController extends Controller
     {
         return [
             'options' => [
-                'procTypes' => MasterItem::labels('proc_type'),
                 'categories' => MasterItem::labels('proc_category'),
                 'procMethods' => MasterItem::labels('proc_method'),
                 'docTypes' => MasterItem::labels('doc_type'),
@@ -295,7 +322,7 @@ class ProcurementController extends Controller
                         'budget_amount' => (float) $b->budget_amount, 'used' => $used[$b->id] ?? 0.0,
                     ]);
                 })(),
-                'templates' => ['SPP Pusat' => WorkflowTemplate::stagesFor('SPP Pusat'), 'SPP Kemitraan' => WorkflowTemplate::stagesFor('SPP Kemitraan')],
+                'templates' => collect(Scheme::ALL)->mapWithKeys(fn ($m) => [$m => WorkflowTemplate::stagesFor($m)])->all(),
             ],
         ];
     }

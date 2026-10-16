@@ -14,7 +14,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->seed(ReferenceSeeder::class);
-    $this->actingAs(User::query()->where('email', 'admin@procfolio.local')->firstOrFail());
+    $this->actingAs(User::query()->where('email', 'superadmin@admin.com')->firstOrFail());
     $this->vendor = Company::query()->create(['name' => 'PT Vendor R9', 'type' => 'Vendor', 'active' => true]);
     $customer = Company::query()->create(['name' => 'PT Pelanggan R9', 'type' => 'Pelanggan', 'active' => true]);
     $this->bakb = CustomerContract::query()->create(['kind' => 'Berita Acara Kesepakatan Biaya', 'number' => 'BAKB/R9/001', 'title' => 'Uji', 'customer_id' => $customer->id, 'date' => now()->subDays(10), 'revenue' => 20000000]);
@@ -23,7 +23,7 @@ beforeEach(function () {
 function r9Payload(array $over = []): array
 {
     return array_merge([
-        'draft' => false, 'method' => 'SPP Pusat', 'title' => 'Pengadaan R9', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung',
+        'draft' => false, 'method' => 'SPP Pusat', 'title' => 'Pengadaan R9', 'category' => 'Barang (Lisensi)', 'proc_method' => 'Pengadaan Langsung',
         'priority' => 'Normal', 'sub_bidang' => 'PLN 2', 'spp_number' => 'SPP/2026/R9/'.random_int(1000, 9999), 'spp_date' => now()->subDays(5)->toDateString(),
         'pic_pengaju_id' => Pic::query()->value('id'), 'candidate_vendor_ids' => [test()->vendor->id], 'customer_contract_ids' => [test()->bakb->id],
         'budget_code_id' => BudgetCode::query()->value('id'),
@@ -46,13 +46,14 @@ it('mengirim jenis perjanjian dan sub bidang PRK ke form (langkah 2 tidak kosong
     $this->get('/pengadaan/baru')->assertOk()->assertInertia(fn (Assert $page) => $page
         ->component('Procurements/Form')
         ->has('options.ccKinds', 3)
-        ->where('options.budgetCodes.0.sub_bidang', 'PLN 2'));
+        ->where('options.budgetCodes', fn ($b) => collect($b)->every(fn ($x) => in_array($x['sub_bidang'], ['PLN 1', 'PLN 2'], true))));
 });
 
-it('menerima nomor PA sebagai pengganti perjanjian pelanggan', function () {
-    $this->post('/pengadaan', r9Payload(['customer_contract_ids' => [], 'pa_number' => 'pa/uji/001']))->assertSessionHasNoErrors();
+it('mewajibkan perjanjian pelanggan; nomor PA hanya pelengkap', function () {
+    $this->post('/pengadaan', r9Payload(['pa_number' => 'pa/uji/001']))->assertSessionHasNoErrors();
     expect(Procurement::query()->value('pa_number'))->toBe('pa/uji/001');
-    $this->post('/pengadaan', r9Payload(['customer_contract_ids' => [], 'pa_number' => '']))->assertSessionHasErrors('customer_contract_ids');
+    // Nomor PA saja tidak cukup.
+    $this->post('/pengadaan', r9Payload(['customer_contract_ids' => [], 'pa_number' => 'pa/uji/002']))->assertSessionHasErrors('customer_contract_ids');
 });
 
 it('mencatat Kontrak Pengadaan setelah SP2K rilis dan mengamandemennya seperti SP2K', function () {
@@ -119,7 +120,7 @@ it('menampilkan dashboard dengan RAB usulan, realisasi, persebaran posisi dan To
 
 it('menjalankan DemoSeeder sampai tuntas', function () {
     $this->seed(DemoSeeder::class);
-    expect(Procurement::query()->count())->toBe(22)
+    expect(Procurement::query()->count())->toBe(26)
         ->and(Procurement::query()->where('cancel_type', 'gagal')->count())->toBe(2)
         ->and(Procurement::query()->where('cancel_type', 'batal')->count())->toBe(2)
         ->and(Procurement::query()->whereNotNull('pa_number')->count())->toBe(2)
@@ -157,9 +158,11 @@ it('menentukan Dibatalkan sebelum unit pengadaan dan Gagal setelahnya, tanpa men
     $this->get('/?periode=semua')->assertInertia(fn (Assert $page) => $page->where('stopped.gagal', 1)->where('stopped.batal', 0)->where('kpi.active', 0));
     $this->get('/pengadaan')->assertInertia(fn (Assert $page) => $page->where('rows.0.cancel_type', 'gagal'));
 
-    // Tidak ada rute untuk menghapus pengadaan.
-    $this->delete("/pengadaan/{$p->code}")->assertStatus(405);
+    // Penghapusan hanya untuk Super Admin (lihat RbacTest); Admin ditolak dan data tetap ada.
+    $admin = User::query()->where('email', 'admin@admin.com')->firstOrFail();
+    $this->actingAs($admin)->delete("/pengadaan/{$p->code}", ['reason' => 'Coba hapus', 'confirm' => $p->spp_number])->assertForbidden();
     expect(Procurement::query()->count())->toBe(1);
+    $this->actingAs(User::query()->where('email', 'superadmin@admin.com')->firstOrFail());
 
     $this->post("/pengadaan/{$p->code}/aktifkan")->assertSessionHasNoErrors();
     expect($p->fresh()->cancel_type)->toBeNull();

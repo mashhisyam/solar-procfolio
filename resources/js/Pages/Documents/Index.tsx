@@ -14,16 +14,16 @@ export default function DocumentIndex({ rows }: { rows: Row[] }) {
   const pg = usePaged(filtered, JSON.stringify([q, type, state]));
   return (
     <>
-      <Head title="Dokumen" />
-      <PageHeader title="Dokumen" />
+      <Head title="Daftar TOR, BCR, BAK" />
+      <PageHeader title="Daftar TOR, BCR, BAK" desc="Dokumen referensi utama pengadaan. Dokumen lain (SPH, KKF, KKP, dll.) tetap ada di tab Dokumen pada detail pengadaan." />
       <Card className="mb-4 flex flex-wrap items-center gap-2 p-3">
         <PeriodFilter className="w-full" />
         <SearchInput className="min-w-[240px] flex-1" value={q} onChange={setQ} placeholder="Cari nomor, judul atau No SPP" />
         <div className="w-[200px]"><Select value={type} onChange={(e) => setType(e.target.value)}><option value="">Semua jenis</option>{types.map((t) => <option key={t}>{t}</option>)}</Select></div>
         <div className="w-[170px]"><Select value={state} onChange={(e) => setState(e.target.value)}><option value="">Semua status</option><option value="ada">Tersedia</option><option value="belum">Belum tersedia</option></Select></div>
       </Card>
-      <Card><TableWrap><thead><tr>{['Jenis', 'Nomor', 'Pengadaan', 'Tanggal', 'Wajib', 'Status', 'Tautan'].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
-        <tbody>{pg.view.map((d) => <tr key={d.id}><td className={cx(td, 'font-semibold')}>{d.doc_type}</td><td className={cx(td, 'num')}>{d.number || '–'}</td><td className={td}><ProcLink code={d.procurement.code} spp={d.procurement.spp_number} tab="dokumen" /><span className="block max-w-[260px] truncate text-[12px] text-mute">{d.procurement.title}</span></td><td className={td}>{fmtDate(d.date)}</td><td className={td}>{d.required ? 'Wajib' : 'Opsional'}</td><td className={td}><StatusBadge status={d.available ? 'Tersedia' : 'Belum Tersedia'} /></td><td className={td}><LinkButton url={d.link} label="Buka" /></td></tr>)}</tbody>
+      <Card><TableWrap><thead><tr><th className={cx(th, 'w-12')}>No</th>{['Jenis', 'Nomor', 'Pengadaan', 'Tanggal', 'Wajib', 'Status', 'Tautan'].map((x) => <th key={x} className={th}>{x}</th>)}</tr></thead>
+        <tbody>{pg.view.map((d, rowIdx) => <tr key={d.id}><td className={cx(td, 'num w-12 text-mute')}>{pg.start + rowIdx + 1}</td><td className={cx(td, 'font-semibold')}>{d.doc_type}</td><td className={cx(td, 'num')}>{d.number || '–'}</td><td className={td}><ProcLink code={d.procurement.code} spp={d.procurement.spp_number} tab="dokumen" /><span className="block max-w-[260px] truncate text-[12px] text-mute">{d.procurement.title}</span></td><td className={td}>{fmtDate(d.date)}</td><td className={td}>{d.required ? 'Wajib' : 'Opsional'}</td><td className={td}><StatusBadge status={d.available ? 'Tersedia' : 'Belum Tersedia'} /></td><td className={td}><LinkButton url={d.link} label="Buka" /></td></tr>)}</tbody>
       </TableWrap><Pager p={pg} label="dokumen" /></Card>
     </>
   );

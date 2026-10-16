@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AmendmentController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\MicrosoftController;
@@ -28,28 +29,18 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth');
 
 Route::middleware('auth')->group(function () {
-    // ---- Baca (semua peran) ----
-    Route::get('/', DashboardController::class);
-    Route::get('/pengadaan', [ProcurementController::class, 'index']);
-    Route::get('/rkap', [RkapController::class, 'index']);
-    Route::get('/rkap/{budgetCode}', [RkapController::class, 'show'])->whereNumber('budgetCode');
-    Route::get('/pengadaan/baru', [ProcurementController::class, 'create'])->middleware('can:edit');
-    Route::get('/pengadaan/{procurement}', [ProcurementController::class, 'show']);
-    Route::get('/pengadaan/{procurement}/edit', [ProcurementController::class, 'edit'])->middleware('can:edit');
-    Route::get('/kontrak', [ContractController::class, 'index']);
-    Route::get('/kontrak/{contract}', [ContractController::class, 'show']);
-    Route::get('/bakb', [CustomerContractController::class, 'index']);
-    Route::get('/bakb/{customerContract}', [CustomerContractController::class, 'show']);
-    Route::get('/pks', [PksController::class, 'index']);
-    Route::get('/pks/{pks}', [PksController::class, 'show']);
-    Route::get('/ba', [BeritaAcaraController::class, 'index']);
-    Route::get('/ba/{ba}', [BeritaAcaraController::class, 'show'])->whereNumber('ba');
-    Route::get('/dokumen', [DocumentController::class, 'index']);
-    Route::get('/tahapan', [SettlementController::class, 'index']);
-    Route::get('/ekspor/pengadaan', [ExportController::class, 'procurements']);
+    // Hak akses per menu: menu:{kunci},{view|edit}. Lihat App\Support\Access.
+    Route::get('/', DashboardController::class)->middleware('menu:dashboard');
 
-    // ---- Ubah (admin & pengaju) ----
-    Route::middleware('can:edit')->group(function () {
+    // ---- Daftar Pengadaan (Ubah = semua aksi di halaman detail pengadaan) ----
+    Route::middleware('menu:pengadaan')->group(function () {
+        Route::get('/pengadaan', [ProcurementController::class, 'index']);
+        Route::get('/pengadaan/baru', [ProcurementController::class, 'create'])->middleware('menu:pengadaan,edit');
+        Route::get('/pengadaan/{procurement}', [ProcurementController::class, 'show']);
+        Route::get('/pengadaan/{procurement}/edit', [ProcurementController::class, 'edit'])->middleware('menu:pengadaan,edit');
+        Route::get('/ekspor/pengadaan', [ExportController::class, 'procurements']);
+    });
+    Route::middleware('menu:pengadaan,edit')->group(function () {
         Route::post('/pengadaan', [ProcurementController::class, 'store']);
         Route::put('/pengadaan/{procurement}', [ProcurementController::class, 'update']);
         Route::post('/pengadaan/{procurement}/batal', [ProcurementController::class, 'cancel']);
@@ -60,7 +51,6 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/pengadaan/{procurement}/kontrak', [ContractController::class, 'store']);
         Route::post('/pengadaan/{procurement}/kontrak-pengadaan', [ContractController::class, 'storeWork']);
-        Route::put('/kontrak/{contract}', [ContractController::class, 'update']);
         Route::post('/pengadaan/{procurement}/amandemen', [AmendmentController::class, 'store']);
         Route::post('/pengadaan/{procurement}/amandemen/{amendment}/rilis', [AmendmentController::class, 'release']);
 
@@ -77,6 +67,43 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/pengadaan/{procurement}/ba/baru', [BeritaAcaraController::class, 'create']);
         Route::post('/pengadaan/{procurement}/ba', [BeritaAcaraController::class, 'store']);
+    });
+    // Hapus pengadaan: hanya Super Admin.
+    Route::delete('/pengadaan/{procurement}', [ProcurementController::class, 'destroy'])->middleware('menu:super');
+
+    // ---- RKAP ----
+    Route::get('/rkap', [RkapController::class, 'index'])->middleware('menu:rkap');
+    Route::get('/rkap/{budgetCode}', [RkapController::class, 'show'])->whereNumber('budgetCode')->middleware('menu:rkap');
+    Route::post('/rkap/prk/{budgetCode?}', [RkapController::class, 'save'])->middleware('menu:rkap,edit');
+
+    // ---- Perjanjian Pelanggan ----
+    Route::get('/bakb', [CustomerContractController::class, 'index'])->middleware('menu:bakb');
+    Route::get('/bakb/{customerContract}', [CustomerContractController::class, 'show'])->middleware('menu:bakb');
+    Route::post('/bakb', [CustomerContractController::class, 'store'])->middleware('menu:bakb,edit');
+    Route::put('/bakb/{customerContract}', [CustomerContractController::class, 'update'])->middleware('menu:bakb,edit');
+
+    // ---- PKS & Amandemen ----
+    Route::get('/pks', [PksController::class, 'index'])->middleware('menu:pks');
+    Route::get('/pks/{pks}', [PksController::class, 'show'])->middleware('menu:pks');
+    Route::middleware('menu:pks,edit')->group(function () {
+        Route::post('/pks', [PksController::class, 'store']);
+        Route::put('/pks/{pks}', [PksController::class, 'update']);
+        Route::post('/pks/{pks}/amandemen', [PksController::class, 'storeAmendment']);
+    });
+
+    // ---- SP2K/PO & Kontrak ----
+    Route::get('/kontrak', [ContractController::class, 'index'])->middleware('menu:kontrak');
+    Route::get('/kontrak/{contract}', [ContractController::class, 'show'])->middleware('menu:kontrak');
+    Route::put('/kontrak/{contract}', [ContractController::class, 'update'])->middleware('menu:kontrak,edit');
+
+    // ---- Dokumen dan Tahapan (lihat; perubahan lewat detail pengadaan) ----
+    Route::get('/dokumen', [DocumentController::class, 'index'])->middleware('menu:dokumen');
+    Route::get('/tahapan', [SettlementController::class, 'index'])->middleware('menu:tahapan');
+
+    // ---- Berita Acara ----
+    Route::get('/ba', [BeritaAcaraController::class, 'index'])->middleware('menu:ba');
+    Route::get('/ba/{ba}', [BeritaAcaraController::class, 'show'])->whereNumber('ba')->middleware('menu:ba');
+    Route::middleware('menu:ba,edit')->group(function () {
         Route::get('/ba/{ba}/edit', [BeritaAcaraController::class, 'edit']);
         Route::put('/ba/{ba}', [BeritaAcaraController::class, 'update']);
         Route::delete('/ba/{ba}', [BeritaAcaraController::class, 'destroy']);
@@ -85,26 +112,26 @@ Route::middleware('auth')->group(function () {
         Route::post('/ba-putaran/{round}/penandatangan', [BeritaAcaraController::class, 'addSignatory']);
         Route::put('/ba-penandatangan/{signatory}', [BeritaAcaraController::class, 'updateSignatory']);
         Route::delete('/ba-penandatangan/{signatory}', [BeritaAcaraController::class, 'removeSignatory']);
-
-        Route::post('/rkap/prk/{budgetCode?}', [RkapController::class, 'save']);
-
-        Route::post('/bakb', [CustomerContractController::class, 'store']);
-        Route::put('/bakb/{customerContract}', [CustomerContractController::class, 'update']);
-        Route::post('/pks', [PksController::class, 'store']);
-        Route::put('/pks/{pks}', [PksController::class, 'update']);
-        Route::post('/pks/{pks}/amandemen', [PksController::class, 'storeAmendment']);
     });
 
-    // ---- Master & Konfigurasi (admin) ----
-    Route::middleware('can:admin')->prefix('master')->group(function () {
-        Route::get('/', [MasterController::class, 'index']);
-        Route::post('/perusahaan/{company?}', [MasterController::class, 'saveCompany']);
-        Route::post('/pic/{pic?}', [MasterController::class, 'savePic']);
-        Route::post('/daftar/{item?}', [MasterController::class, 'saveItem']);
-        Route::post('/workflow/{scheme}', [MasterController::class, 'saveWorkflow']);
-        Route::post('/pengaturan', [MasterController::class, 'saveSettings']);
-        Route::post('/kalender', [MasterController::class, 'saveHoliday']);
-        Route::delete('/kalender/{holiday}', [MasterController::class, 'deleteHoliday']);
-        Route::post('/pengguna/{user}', [MasterController::class, 'saveUser']);
+    // ---- Master & Konfigurasi ----
+    Route::prefix('master')->group(function () {
+        Route::get('/', [MasterController::class, 'index'])->middleware('menu:master');
+        Route::middleware('menu:master,edit')->group(function () {
+            Route::post('/perusahaan/{company?}', [MasterController::class, 'saveCompany']);
+            Route::post('/pic/{pic?}', [MasterController::class, 'savePic']);
+            Route::post('/daftar/{item?}', [MasterController::class, 'saveItem']);
+            Route::post('/workflow/{scheme}', [MasterController::class, 'saveWorkflow']);
+            Route::post('/pengaturan', [MasterController::class, 'saveSettings']);
+            Route::post('/kalender', [MasterController::class, 'saveHoliday']);
+            Route::delete('/kalender/{holiday}', [MasterController::class, 'deleteHoliday']);
+        });
+    });
+
+    // ---- Kelola Pengguna (Super Admin) ----
+    Route::middleware('menu:super')->prefix('pengguna')->group(function () {
+        Route::get('/', [UserController::class, 'index']);
+        Route::post('/', [UserController::class, 'store']);
+        Route::put('/{user}', [UserController::class, 'update']);
     });
 });

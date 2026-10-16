@@ -198,7 +198,7 @@ class BeritaAcaraController extends Controller
             'ba' => $ba ? [...$ba->only(['id', 'type', 'number', 'title', 'sub_bidang', 'contract_ref_type', 'contract_ref_number', 'director_internal', 'director_external', 'first_party', 'second_party', 'link']), 'date' => Cal::iso($ba->date), 'term_ids' => $ba->terms()->pluck('payment_terms.id')] : null,
             'defaults' => [
                 'contract_ref_type' => $vc ? ($vc->kind === 'PO' ? 'PO' : 'SP2K') : ($p->method === 'SPP Kemitraan' ? 'BAK' : 'SP2K'),
-                'contract_ref_number' => $vc?->number ?? $p->bak_number,
+                'contract_ref_number' => $vc?->number ?? $p->documents()->where('doc_type', 'BAK')->value('number'),
                 'first_party' => 'PT Indonesia Comnets Plus',
                 'second_party' => $vc?->vendor?->name, // vendor pemenang menjadi Pihak Kedua
                 'winner_locked' => (bool) $vc,

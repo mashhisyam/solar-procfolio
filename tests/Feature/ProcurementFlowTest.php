@@ -11,7 +11,7 @@ use Database\Seeders\ReferenceSeeder;
 
 beforeEach(function () {
     $this->seed(ReferenceSeeder::class);
-    $this->user = User::query()->where('email', 'admin@procfolio.local')->firstOrFail();
+    $this->user = User::query()->where('email', 'superadmin@admin.com')->firstOrFail();
     $this->actingAs($this->user);
     $this->vendor = Company::query()->create(['name' => 'PT Vendor Uji', 'type' => 'Vendor', 'active' => true]);
     $this->customer = Company::query()->create(['name' => 'PT Pelanggan Uji', 'type' => 'Pelanggan', 'active' => true]);
@@ -22,7 +22,7 @@ beforeEach(function () {
 function payload(array $over = []): array
 {
     return array_merge([
-        'draft' => false, 'method' => 'SPP Pusat', 'title' => 'Pengadaan Lisensi Uji', 'proc_type' => 'Barang', 'category' => 'Lisensi', 'proc_method' => 'Pengadaan Langsung',
+        'draft' => false, 'method' => 'SPP Pusat', 'title' => 'Pengadaan Lisensi Uji', 'category' => 'Barang (Lisensi)', 'proc_method' => 'Pengadaan Langsung',
         'priority' => 'Normal', 'sub_bidang' => 'PLN 1', 'registered_at' => '2026-01-05', 'spp_number' => 'SPP/2026/BJB/000001', 'spp_date' => '2026-01-02',
         'pic_pengaju_id' => Pic::query()->value('id'), 'candidate_vendor_ids' => [test()->vendor->id], 'customer_contract_ids' => [test()->bakb->id],
         'budget_code_id' => test()->code->id,

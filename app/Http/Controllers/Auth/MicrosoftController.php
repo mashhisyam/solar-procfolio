@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Access;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
@@ -30,12 +31,13 @@ class MicrosoftController extends Controller
         if (! $user) {
             $user = User::query()->create([
                 'name' => $ms->getName() ?: $email, 'email' => $email, 'microsoft_id' => $ms->getId(),
-                'role' => $isAdmin ? 'admin' : 'pengaju', 'active' => true,
+                // Akun SSO baru: Admin hanya lihat sampai Super Admin mengatur hak aksesnya.
+                'role' => $isAdmin ? User::SUPER_ADMIN : User::ADMIN, 'permissions' => $isAdmin ? Access::full() : Access::VIEW_ONLY, 'active' => true,
             ]);
         } else {
             $user->fill(['microsoft_id' => $ms->getId(), 'name' => $ms->getName() ?: $user->name]);
             if ($isAdmin) {
-                $user->role = 'admin';
+                $user->role = User::SUPER_ADMIN;
             }
             $user->save();
         }

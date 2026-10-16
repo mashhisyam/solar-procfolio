@@ -8,7 +8,6 @@ use App\Models\Company;
 use App\Models\Holiday;
 use App\Models\MasterItem;
 use App\Models\Pic;
-use App\Models\User;
 use App\Models\WorkflowTemplate;
 use App\Services\AuditLogger;
 use App\Support\WorkdayCalendar as Cal;
@@ -16,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,10 +32,12 @@ class MasterController extends Controller
             'pics' => Pic::query()->with('company:id,name')->orderBy('name')->get(),
             'items' => MasterItem::query()->orderBy('group')->orderBy('sort')->orderBy('label')->get()->groupBy('group'),
             'groups' => MasterItem::GROUPS,
+            // Pilihan peran PIC = nama tahap di semua template alur (dipakai untuk menyarankan PIC di Update Proses) + peran tambahan.
+            'picRoles' => collect(WorkflowTemplate::query()->orderBy('sort')->pluck('name'))
+                ->merge(['Finance', 'Penandatangan', 'Penandatangan Vendor', 'Penandatangan Mitra'])->unique()->values(),
             'templates' => collect(WorkflowTemplate::SCHEMES)->mapWithKeys(fn ($s) => [$s => WorkflowTemplate::query()->where('scheme', $s)->orderBy('sort')->get()]),
             'settings' => AppSetting::allWithDefaults(),
             'holidays' => Holiday::query()->orderBy('date')->get()->map(fn ($h) => ['id' => $h->id, 'date' => Cal::iso($h->date), 'name' => $h->name, 'type' => $h->type]),
-            'users' => User::query()->orderBy('name')->get(['id', 'name', 'email', 'role', 'active']),
         ]);
     }
 
@@ -61,7 +63,14 @@ class MasterController extends Controller
 
     public function saveItem(Request $request, ?MasterItem $item = null): RedirectResponse
     {
-        $d = $request->validate(['group' => ['required', Rule::in(array_keys(MasterItem::GROUPS))], 'label' => ['required', 'string', 'max:120'], 'active' => ['boolean']]);
+        $d = $request->validate(['group' => ['required', Rule::in(array_keys(MasterItem::GROUPS))], 'label' => ['required', 'string', 'max:120'], 'active' => ['boolean']], [], ['label' => 'pilihan']);
+        $d['label'] = trim($d['label']);
+        // Cegah pilihan ganda (tanpa membedakan huruf besar/kecil); sebelumnya memicu error database tanpa pesan.
+        $dupe = MasterItem::query()->where('group', $d['group'])->whereRaw('lower(label) = ?', [mb_strtolower($d['label'])])
+            ->when($item, fn ($q) => $q->whereKeyNot($item->id))->exists();
+        if ($dupe) {
+            throw ValidationException::withMessages(['label' => "Pilihan \"{$d['label']}\" sudah ada di daftar ini."]);
+        }
         abort_if($item?->locked && $item->label !== $d['label'], 422, 'Label inti tidak dapat diubah.');
         $item ? $item->update($d) : MasterItem::query()->create([...$d, 'sort' => (int) MasterItem::query()->where('group', $d['group'])->max('sort') + 1]);
 
@@ -76,11 +85,14 @@ class MasterController extends Controller
             'stages' => ['required', 'array', 'min:1'], 'stages.*.key' => ['required', 'string', 'max:40', 'distinct'],
             'stages.*.name' => ['required', 'string'], 'stages.*.enabled' => ['boolean'], 'stages.*.optional' => ['boolean'],
             'stages.*.pic_id' => ['nullable', 'exists:pics,id'], 'stages.*.default_activities' => ['array'],
+            'stages.*.group' => ['nullable', 'string', 'max:60'],
         ]);
         DB::transaction(function () use ($scheme, $d) {
+            // Kelompok tahap (Pengaju, Sales, Anggaran, ...) dipertahankan; sebelumnya hilang saat template disimpan.
+            $groups = WorkflowTemplate::query()->where('scheme', $scheme)->pluck('group', 'key');
             WorkflowTemplate::query()->where('scheme', $scheme)->delete();
             foreach ($d['stages'] as $i => $s) {
-                WorkflowTemplate::query()->create([...$s, 'scheme' => $scheme, 'sort' => $i]);
+                WorkflowTemplate::query()->create([...$s, 'group' => $s['group'] ?? $groups[$s['key']] ?? null, 'scheme' => $scheme, 'sort' => $i]);
             }
         });
         $this->audit->log(null, 'Konfigurasi', $scheme, 'Ubah template workflow', null, null, implode(' → ', array_column($d['stages'], 'name')));
@@ -115,15 +127,5 @@ class MasterController extends Controller
         $holiday->delete();
 
         return $this->done('Tanggal kalender dihapus.');
-    }
-
-    public function saveUser(Request $request, User $user): RedirectResponse
-    {
-        $d = $request->validate(['role' => ['required', Rule::in(User::ROLES)], 'active' => ['boolean']]);
-        abort_if($user->id === $request->user()->id && ($d['role'] !== 'admin' || ! ($d['active'] ?? true)), 422, 'Tidak dapat menurunkan peran akun sendiri.');
-        $this->audit->log(null, 'Pengguna', $user->id, 'Ubah peran pengguna', 'role', $user->role, $d['role']);
-        $user->update($d);
-
-        return $this->done('Pengguna diperbarui.');
     }
 }

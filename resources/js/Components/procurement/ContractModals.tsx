@@ -3,16 +3,17 @@ import { router, useForm, usePage } from '@inertiajs/react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { Button, Checkbox, Field, Input, LinkField, Modal, MoneyInput, Select, Textarea, cx } from '@/Components/ui';
 import { DeadlinePill } from '@/Components/common';
+import { finalDoc } from '@/lib/scheme';
 import { fmtDate, rp } from '@/lib/format';
 import type { PageProps, StageDef } from '@/types';
 
 interface Vendor { id: number; name: string }
 
 /** Rilis SP2K/PO: kontrak + tahapan pembayaran (syarat penyerahan, rencana selesai, persentase). */
-export function ReleaseContractModal({ open, onClose, code, method, title, candidates, rab, contractTypes, runningStage }: { open: boolean; onClose: () => void; code: string; method: 'SPP Pusat' | 'SPP Kemitraan'; title: string; candidates: Vendor[]; rab: number; contractTypes: string[]; runningStage?: string | null }) {
+export function ReleaseContractModal({ open, onClose, code, method, title, candidates, rab, contractTypes, runningStage }: { open: boolean; onClose: () => void; code: string; method: string; title: string; candidates: Vendor[]; rab: number; contractTypes: string[]; runningStage?: string | null }) {
   const { app } = usePage<PageProps>().props;
   const form = useForm({
-    kind: method === 'SPP Kemitraan' ? 'PO' : 'SP2K', number: '', title, vendor_id: (candidates.length === 1 ? candidates[0].id : '') as number | '',
+    kind: finalDoc(method), number: '', title, vendor_id: (candidates.length === 1 ? candidates[0].id : '') as number | '',
     date: app.today, kickoff_date: '', value_excl: 0, value_incl: 0, scope: '', link: '', close_stage: true,
     terms: [{ name: '', planned_end: '', percent: 100 }] as { name: string; planned_end: string; percent: number }[],
   });
@@ -23,7 +24,7 @@ export function ReleaseContractModal({ open, onClose, code, method, title, candi
   const setTerm = (k: number, patch: Partial<(typeof d.terms)[number]>) => form.setData('terms', d.terms.map((t, j) => (j === k ? { ...t, ...patch } : t)));
   const termErr = Object.entries(e).find(([k]) => k.startsWith('terms'))?.[1];
   return (
-    <Modal open={open} onClose={onClose} width="max-w-4xl" title={`Rilis ${method === 'SPP Pusat' ? 'SP2K' : 'PO'}`}
+    <Modal open={open} onClose={onClose} width="max-w-4xl" title={`Rilis ${finalDoc(method)}`}
       footer={<><Button onClick={onClose}>Batal</Button><Button variant="primary" icon={Save} disabled={form.processing} onClick={() => form.post(`/pengadaan/${code}/kontrak`, { preserveScroll: true, onSuccess: onClose })}>Simpan & rilis</Button></>}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Jenis dokumen kontrak" required><Select value={d.kind} onChange={(x) => form.setData('kind', x.target.value)}>{contractTypes.map((t) => <option key={t}>{t}</option>)}</Select></Field>
@@ -54,7 +55,7 @@ export function ReleaseContractModal({ open, onClose, code, method, title, candi
         <div className="flex flex-wrap items-center gap-3 px-4 py-3"><Button size="xs" icon={Plus} onClick={() => form.setData('terms', [...d.terms, { name: '', planned_end: '', percent: Math.max(0, 100 - sum) }])}>Tambah tahap</Button>{lastEnd && <span className="flex items-center gap-1.5 text-[12.5px] text-mute">Batas pekerjaan {fmtDate(lastEnd)} <DeadlinePill date={lastEnd} /></span>}</div>
         {termErr && <p className="px-4 pb-3 text-[12px] font-medium text-bad">{termErr}</p>}
       </div>
-      {runningStage && <div className="mt-4 rounded-lg border border-warn/30 bg-warnsoft p-3"><Checkbox checked={d.close_stage} onChange={(v) => form.setData('close_stage', v)} label={`Tutup tahap ${runningStage} dengan aktivitas ${method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis'}`} /></div>}
+      {runningStage && <div className="mt-4 rounded-lg border border-warn/30 bg-warnsoft p-3"><Checkbox checked={d.close_stage} onChange={(v) => form.setData('close_stage', v)} label={`Tutup tahap ${runningStage} dengan aktivitas ${finalDoc(method)} Rilis`} /></div>}
     </Modal>
   );
 }

@@ -5,6 +5,7 @@ import { Badge, Button, Card, EmptyState, SearchInput, Segmented, TableWrap, cx,
 import { MetricCard, PageHeader, RowLink } from '@/Components/common';
 import { Pager, usePaged } from '@/Components/Pagination';
 import { rp, rpShort } from '@/lib/format';
+import { useAccess } from '@/lib/access';
 import type { PageProps } from '@/types';
 import PrkModal, { type PrkRow } from '@/Components/rkap/PrkModal';
 
@@ -13,6 +14,7 @@ export interface RkapRow extends PrkRow { used: number; remaining: number; perce
 /** RKAP: daftar PRK seperti daftar pengadaan; detail per PRK berisi persentase terpakai dan pengadaannya. */
 export default function RkapIndex({ rows }: { rows: RkapRow[] }) {
   const { auth } = usePage<PageProps>().props;
+  const access = useAccess();
   const [q, setQ] = useState('');
   // Sub bidang dipilih lebih dulu; RKAP ditampilkan per sub bidang.
   // PRK tanpa sub bidang dikumpulkan di tab tersendiri agar tidak hilang dari daftar.
@@ -34,7 +36,7 @@ export default function RkapIndex({ rows }: { rows: RkapRow[] }) {
       <Head title="RKAP" />
       <PageHeader title="Monitoring Penetapan RKAP" desc=""
         meta={<div className="flex flex-wrap items-center gap-2"><span className="text-[12.5px] text-mute">Sub bidang</span><Segmented value={sub} onChange={setSub} options={tabs} /><span className="num text-[12.5px] text-mute">{inSub.length} PRK</span></div>}
-        actions={auth.can.edit && <Button variant="primary" icon={Plus} onClick={() => setEdit('new')}>Tambah PRK</Button>} />
+        actions={access.canEdit('rkap') && <Button variant="primary" icon={Plus} onClick={() => setEdit('new')}>Tambah PRK</Button>} />
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Nilai Pengajuan" value={rpShort(total.pagu)} icon={Landmark} sub={''} />
         <MetricCard label="Nilai Digunakan" value={rpShort(total.used)} sub={total.pagu ? `${((total.used / total.pagu) * 100).toFixed(1)}% dari pengajuan` : 'Nilai pengajuan belum diisi'} icon={Wallet} tone="info" />
@@ -51,9 +53,9 @@ export default function RkapIndex({ rows }: { rows: RkapRow[] }) {
       <Card>
         {view.length === 0 ? <EmptyState icon={Landmark} title="Tidak ada PRK yang cocok" /> : (
           <TableWrap>
-            <thead><tr>{['Kode Anggaran', 'COA', 'Cost Center', 'Sub Bidang', 'Nilai Pengajuan', 'Nilai Digunakan', 'Sisa Anggaran'].map((x) => <th key={x} className={cx(th, ['Nilai Pengajuan', 'Nilai Digunakan', 'Sisa Anggaran'].includes(x) && 'text-right')}>{x}</th>)}</tr></thead>
-            <tbody>{pg.view.map((r) => (
-              <RowLink key={r.id} href={`/rkap/${r.id}`} className={cx(!r.active && 'opacity-60')}>
+            <thead><tr><th className={cx(th, 'w-12')}>No</th>{['Kode Anggaran', 'COA', 'Cost Center', 'Sub Bidang', 'Nilai Pengajuan', 'Nilai Digunakan', 'Sisa Anggaran'].map((x) => <th key={x} className={cx(th, ['Nilai Pengajuan', 'Nilai Digunakan', 'Sisa Anggaran'].includes(x) && 'text-right')}>{x}</th>)}</tr></thead>
+            <tbody>{pg.view.map((r, rowIdx) => (
+              <RowLink key={r.id} href={`/rkap/${r.id}`} className={cx(!r.active && 'opacity-60')}><td className={cx(td, 'num w-12 text-mute')}>{pg.start + rowIdx + 1}</td>
                 <td className={cx(td, 'min-w-[260px]')}><div className="num font-bold text-navy">{r.code}</div><div className="text-[12px] text-mute">{r.program}</div></td>
                 <td className={cx(td, 'num')}>{r.coa}</td>
                 <td className={cx(td, 'min-w-[200px]')}>{r.cost_center}</td>

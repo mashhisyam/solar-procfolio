@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class WorkflowTemplate extends Model
 {
-    public const SCHEMES = ['SPP Pusat', 'SPP Kemitraan', 'Pasca'];
+    public const SCHEMES = ['SPP Pusat', 'SPP Kemitraan', 'SPR', 'Pasca'];
 
     protected $fillable = ['scheme', 'key', 'name', 'group', 'enabled', 'optional', 'sort', 'default_activities', 'pic_id'];
 
