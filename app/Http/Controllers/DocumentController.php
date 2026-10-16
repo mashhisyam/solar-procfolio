@@ -16,12 +16,15 @@ use Inertia\Response;
 /** Register dokumen pengadaan. Dokumen tidak diunggah; cukup tautan SharePoint. */
 class DocumentController extends Controller
 {
+    public const REGISTER_TYPES = ['TOR (Term of Reference)', 'BCR (Benefit Cost Ratio)', 'BAK'];
+
     public function __construct(private AuditLogger $audit) {}
 
     public function index(Request $request): Response
     {
         return Inertia::render('Documents/Index', [
-            'rows' => Period::apply(Document::query(), Period::current($request), 'procurement')->with('procurement:id,code,spp_number,title')->latest('id')->get()->map(fn (Document $d) => [
+            // Menu "Daftar TOR, BCR, BAK": hanya dokumen referensi utama.
+            'rows' => Period::apply(Document::query(), Period::current($request), 'procurement')->whereIn('doc_type', self::REGISTER_TYPES)->with('procurement:id,code,spp_number,title')->latest('id')->get()->map(fn (Document $d) => [
                 ...$d->only(['id', 'doc_type', 'number', 'title', 'required', 'available', 'link']), 'date' => Cal::iso($d->date),
                 'procurement' => $d->procurement->only(['code', 'spp_number', 'title']),
             ]),

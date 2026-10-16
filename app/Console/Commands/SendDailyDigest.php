@@ -37,7 +37,8 @@ class SendDailyDigest extends Command
 
             return self::SUCCESS;
         }
-        User::query()->where('active', true)->whereIn('role', ['admin', 'pengaju'])->get()
+        // Dikirim ke pengguna aktif yang boleh mengubah pengadaan.
+        User::query()->where('active', true)->get()->filter(fn (User $u) => $u->canEdit())
             ->each(fn (User $u) => Mail::to($u->email)->queue(new DailyDigest($rows->all())));
         $this->info("Ringkasan {$rows->count()} pengadaan dikirim.");
 

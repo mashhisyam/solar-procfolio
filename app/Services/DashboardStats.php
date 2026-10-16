@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Enums\Track;
 use App\Enums\VisitStatus;
+use App\Models\MasterItem;
 use App\Models\Procurement;
 use App\Models\StageVisit;
+use App\Support\Scheme;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Support\Collection;
 
@@ -40,8 +42,12 @@ class DashboardStats
         return [
             'kpi' => [
                 'active' => $active->count(),
-                'spp' => $active->where('method', 'SPP Pusat')->count(),
-                'kemitraan' => $active->where('method', 'SPP Kemitraan')->count(),
+                'spp' => $active->where('method', Scheme::SPP)->count(),
+                'kemitraan' => $active->where('method', Scheme::KEMITRAAN)->count(),
+                'spr' => $active->where('method', Scheme::SPR)->count(),
+                // Pengadaan yang dikembalikan dan menunggu perbaikan pengaju.
+                'revision_major' => $active->filter(fn ($r) => ($r['revision']['type'] ?? null) === 'mayor')->count(),
+                'revision_minor' => $active->filter(fn ($r) => ($r['revision']['type'] ?? null) === 'minor')->count(),
                 'urgent' => $active->where('priority', 'Urgent')->count(),
                 'attention' => $active->filter(fn ($r) => count($r['alerts']) > 0)->count(),
                 'done' => $rows->where('status', 'Selesai')->count(),
@@ -63,6 +69,7 @@ class DashboardStats
                 'value' => $this->topValue($contracted),
                 'approval' => $this->topApproval($procs),
                 'vendor' => $this->topVendor($contracted),
+                'category' => $this->byCategory($procs),
             ],
         ];
     }
@@ -151,7 +158,8 @@ class DashboardStats
 
             return [
                 'name' => $name, 'track' => $track, 'count' => $list->count(),
-                'spp' => $list->where('method', 'SPP Pusat')->count(), 'kemitraan' => $list->where('method', 'SPP Kemitraan')->count(),
+                'spp' => $list->where('method', Scheme::SPP)->count(), 'kemitraan' => $list->where('method', Scheme::KEMITRAAN)->count(),
+                'spr' => $list->where('method', Scheme::SPR)->count(),
                 'stage_avg' => $avg($days), 'stage_max' => $days ? max($days) : null,
                 'process_avg' => $avg($list->pluck('process_days')->all()),
             ];
@@ -263,6 +271,24 @@ class DashboardStats
             'by_count' => $all->sortBy([['count', 'desc'], ['value', 'desc']])->take(5)->values()->all(),
             'by_value' => $all->sortByDesc('value')->take(5)->values()->all(),
         ];
+    }
+
+    /**
+     * Jumlah pengadaan per kategori pengadaan (urutan mengikuti Master), dengan total RAB dan jumlah yang sudah terkontrak.
+     *
+     * @param  Collection<int, Procurement>  $procs
+     * @return array<int, array{name:string, count:int, rab:float, contracted:int}>
+     */
+    private function byCategory(Collection $procs): array
+    {
+        $order = MasterItem::query()->where('group', 'proc_category')->orderBy('sort')->pluck('label')->all();
+        $groups = $procs->groupBy(fn (Procurement $p) => $p->category ?: 'Tanpa kategori');
+        $names = array_values(array_unique([...$order, ...$groups->keys()->all()]));
+
+        return collect($names)->map(fn (string $n) => [
+            'name' => $n, 'count' => ($groups[$n] ?? collect())->count(), 'rab' => (float) ($groups[$n] ?? collect())->sum('rab_value'),
+            'contracted' => ($groups[$n] ?? collect())->filter(fn (Procurement $p) => $p->contract !== null)->count(),
+        ])->values()->all();
     }
 
     /** @return array{code:string, spp_number:?string, title:string, method:string} */

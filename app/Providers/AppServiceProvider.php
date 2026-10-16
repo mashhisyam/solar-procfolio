@@ -21,8 +21,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Gate::define('edit', fn (User $u) => $u->active && $u->canEdit());
-        Gate::define('admin', fn (User $u) => $u->active && $u->isAdmin());
+        Gate::define('edit', fn (User $u) => $u->canEdit());
+        Gate::define('admin', fn (User $u) => $u->isAdmin());
+        Gate::define('super', fn (User $u) => $u->isSuperAdmin());
 
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('azure', Provider::class);

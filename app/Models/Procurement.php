@@ -14,13 +14,13 @@ use Illuminate\Support\Collection;
 class Procurement extends Model
 {
     protected $fillable = [
-        'code', 'spp_number', 'spp_date', 'title', 'summary', 'method', 'proc_type', 'category', 'proc_method', 'priority',
-        'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'registered_at', 'rab_value', 'pks_id', 'bak_number',
-        'bak_date', 'pa_number', 'vendor_id', 'workflow', 'is_draft', 'cancelled_at', 'cancel_type', 'cancel_reason', 'created_by',
+        'code', 'spp_number', 'spp_date', 'title', 'summary', 'method', 'category', 'proc_method', 'priority',
+        'sub_bidang', 'pengaju_name', 'pic_pengaju_id', 'registered_at', 'rab_value', 'pks_id',
+        'pa_number', 'vendor_id', 'workflow', 'is_draft', 'cancelled_at', 'cancel_type', 'cancel_reason', 'created_by',
     ];
 
     protected $casts = [
-        'spp_date' => 'date', 'registered_at' => 'date', 'bak_date' => 'date', 'cancelled_at' => 'datetime',
+        'spp_date' => 'date', 'registered_at' => 'date', 'cancelled_at' => 'datetime',
         'workflow' => 'array', 'is_draft' => 'boolean', 'rab_value' => 'decimal:2',
     ];
 
@@ -88,6 +88,12 @@ class Procurement extends Model
     public function activities(): HasMany
     {
         return $this->hasMany(StageActivity::class);
+    }
+
+    /** Nomor BAK (SPP Kemitraan) diambil dari dokumen referensi BAK. */
+    public function bakDocument(): ?Document
+    {
+        return $this->documents->firstWhere('doc_type', 'BAK');
     }
 
     /**

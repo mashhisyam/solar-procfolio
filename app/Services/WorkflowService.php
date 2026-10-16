@@ -18,6 +18,7 @@ use App\Models\StageVisit;
 use App\Models\TermPlanHistory;
 use App\Models\VendorContract;
 use App\Models\WorkflowTemplate;
+use App\Support\Scheme;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -244,6 +245,25 @@ class WorkflowService
         return $type;
     }
 
+    /**
+     * Lengkapi nomor PA saat approval Sales (SPP Pusat & SPP Kemitraan) bila belum diisi saat registrasi.
+     * Hanya mengisi yang kosong; perubahan nomor PA yang sudah ada tetap lewat Edit pengadaan.
+     */
+    public function recordPaNumber(Procurement $p, string $number): void
+    {
+        $number = trim($number);
+        if ($number === '' || filled($p->pa_number) || ! Scheme::hasSales($p->method)) {
+            return;
+        }
+        $cur = $p->visits()->where('track', Track::Pengadaan->value)->where('status', VisitStatus::Running->value)->latest('id')->first();
+        $group = $cur ? self::groupOf(collect($p->workflow)->firstWhere('key', $cur->stage_key) ?? ['key' => $cur->stage_key]) : null;
+        if ($group !== 'Sales') {
+            throw ValidationException::withMessages(['pa_number' => 'Nomor PA dilengkapi saat tahap Sales; di tahap lain gunakan Edit pengadaan.']);
+        }
+        $p->update(['pa_number' => $number]);
+        $this->audit->log($p->id, 'Pengadaan', $p->code, 'Lengkapi nomor PA', 'Nomor PA', null, $number, "Diisi saat {$cur->stage_name}");
+    }
+
     /** Registrasi selesai: tahap aktif pertama dimulai pada tanggal registrasi. */
     public function register(Procurement $p): void
     {
@@ -395,7 +415,7 @@ class WorkflowService
                         $this->audit->log($p->id, 'Invoice', $inv->id, 'Catat invoice', "Invoice Tahap {$term->seq}", null, $inv->number);
                     }
                     $this->closeVisit($v, $date, VisitStatus::Done, $activity);
-                    $finalLabel = $track === Track::Pasca ? 'Dibayar' : ($amendmentId ? 'Amandemen Rilis' : ($p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis'));
+                    $finalLabel = $track === Track::Pasca ? 'Dibayar' : ($amendmentId ? 'Amandemen Rilis' : Scheme::finalDoc($p->method).' Rilis');
                     $this->audit->log($p->id, 'Tahap', $v->id, 'Selesaikan tahap', $subject, $v->stage_name, $next['name'] ?? $finalLabel, $note ?: null);
                     if ($next) {
                         $this->markSkipped($p, $track, $v->stage_key, $next['key'], $date, '', $termId, $amendmentId);
@@ -412,7 +432,7 @@ class WorkflowService
                         $msg = 'Tahap amandemen selesai. Catat nomor dan isi amandemen.';
                         $after = 'amendment-release';
                     } else {
-                        $msg = "{$v->stage_name} selesai. Lanjutkan rilis ".($p->method === 'SPP Pusat' ? 'SP2K' : 'PO').' beserta tahapan pembayaran.';
+                        $msg = "{$v->stage_name} selesai. Lanjutkan rilis ".Scheme::finalDoc($p->method).' beserta tahapan pembayaran.';
                         $after = 'contract';
                     }
                     break;
@@ -593,7 +613,7 @@ class WorkflowService
                 ->whereNull('amendment_id')->where('status', VisitStatus::Running->value)->latest('id')->first();
             if ($running && ($d['close_stage'] ?? true)) {
                 $closeDate = $d['date'] >= Cal::iso($running->entered_at) ? $d['date'] : Cal::today();
-                $this->closeVisit($running, $closeDate, VisitStatus::Done, $p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis');
+                $this->closeVisit($running, $closeDate, VisitStatus::Done, Scheme::finalDoc($p->method).' Rilis');
             }
 
             foreach ($terms as $i => $t) {

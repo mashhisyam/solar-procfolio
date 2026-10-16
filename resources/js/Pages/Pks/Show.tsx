@@ -4,18 +4,20 @@ import { Pencil, Plus, Save } from 'lucide-react';
 import { Badge, Button, Card, CardHead, EmptyState, Field, Input, KV, LinkButton, LinkField, Modal, Textarea, cx } from '@/Components/ui';
 import { PageHeader, PagedProcTable } from '@/Components/common';
 import { fmtDate } from '@/lib/format';
+import { useAccess } from '@/lib/access';
 import type { PageProps, ProcRow } from '@/types';
 import { PksModal, PksRow } from './Index';
 
 type Amd = { id: number; seq: number; number: string; date: string; effective_date: string; changed_parts: string[] | null; description: string | null; new_end_date: string | null; new_scope: string | null; link: string | null };
 export default function PksShow({ pks, rows, parts, partners }: { pks: PksRow & { amendments: Amd[] }; rows: ProcRow[]; parts: string[]; partners: { id: number; name: string }[] }) {
   const { auth, app } = usePage<PageProps>().props;
+  const access = useAccess();
   const [edit, setEdit] = useState(false); const [amd, setAmd] = useState(false);
   const form = useForm({ number: '', date: app.today, effective_date: app.today, changed_parts: [] as string[], description: '', new_end_date: '', new_scope: '', link: '' });
   return (
     <>
       <Head title={pks.number} />
-      <PageHeader crumbs={[['PKS & Amandemen', '/pks'], [pks.number]]} title={pks.number} desc={`${pks.title} · ${pks.partner}`} actions={<><LinkButton url={pks.link} label="Buka dokumen" size="sm" />{auth.can.edit && <><Button icon={Pencil} onClick={() => setEdit(true)}>Ubah</Button><Button variant="primary" icon={Plus} onClick={() => { form.reset(); setAmd(true); }}>Tambah amandemen</Button></>}</>} />
+      <PageHeader crumbs={[['PKS & Amandemen', '/pks'], [pks.number]]} title={pks.number} desc={`${pks.title} · ${pks.partner}`} actions={<><LinkButton url={pks.link} label="Buka dokumen" size="sm" />{access.canEdit('pks') && <><Button icon={Pencil} onClick={() => setEdit(true)}>Ubah</Button><Button variant="primary" icon={Plus} onClick={() => { form.reset(); setAmd(true); }}>Tambah amandemen</Button></>}</>} />
       <Card className="mb-5"><div className="p-5"><KV cols={3} items={[['Versi efektif', pks.effective.label], ['Berlaku', `${fmtDate(pks.start_date)} – ${fmtDate(pks.effective.end_date)}`], ['Ruang lingkup efektif', pks.effective.scope || '–']]} /></div></Card>
       <Card className="mb-5"><CardHead title={`Riwayat amandemen (${pks.amendments.length})`} />
         <ol className="space-y-3 p-5">{pks.amendments.length === 0 ? <p className="text-[13px] text-mute">Belum ada amandemen.</p> : pks.amendments.map((a) => (

@@ -12,7 +12,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 beforeEach(function () {
     $this->seed(ReferenceSeeder::class);
     $this->seed(DemoSeeder::class);
-    $this->actingAs(User::query()->where('email', 'admin@procfolio.local')->firstOrFail());
+    $this->actingAs(User::query()->where('email', 'superadmin@admin.com')->firstOrFail());
 });
 
 it('memo insight ikut basi saat relasi dimuat ulang', function () {

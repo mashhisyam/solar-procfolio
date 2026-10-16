@@ -4,6 +4,7 @@ import { Pencil, RotateCcw, CheckCheck, Plus, Trash2, X } from 'lucide-react';
 import { Badge, Button, Card, CardHead, ConfirmDialog, Field, Input, KV, LinkButton, Modal, Select, Textarea, cx } from '@/Components/ui';
 import { PageHeader, ProcLink, StatusBadge } from '@/Components/common';
 import { fmtDate } from '@/lib/format';
+import { useAccess } from '@/lib/access';
 import type { PageProps, Pic } from '@/types';
 
 type Sig = { id: number; pic_id: number; name: string; title: string | null; company: string | null; status: string; sent_at: string | null; signed_at: string | null; note: string | null };
@@ -12,7 +13,8 @@ interface Props { ba: { id: number; type: string; number: string | null; title: 
 
 export default function BaShow({ ba, pics }: Props) {
   const { auth, app } = usePage<PageProps>().props;
-  const can = auth.can.edit;
+  const access = useAccess();
+  const can = access.canEdit('ba');
   const [active, setActive] = useState(ba.rounds.length ? ba.rounds[ba.rounds.length - 1].id : 0);
   const round = ba.rounds.find((r) => r.id === active) || ba.rounds[ba.rounds.length - 1];
   const isActive = round && round.id === ba.rounds[ba.rounds.length - 1]?.id;
@@ -23,7 +25,7 @@ export default function BaShow({ ba, pics }: Props) {
   return (
     <>
       <Head title={`${ba.type} ${ba.number || ''}`} />
-      <PageHeader crumbs={[['Berita Acara', '/ba'], [`${ba.type} ${ba.number || ''}`]]} title={ba.title}
+      <PageHeader crumbs={[['Berita Acara Penyelesaian', '/ba'], [`${ba.type} ${ba.number || ''}`]]} title={ba.title}
         meta={<><Badge tone="navy">{ba.type}</Badge><span className="num font-semibold">{ba.number || '–'}</span><StatusBadge status={ba.status} />{ba.manual_status && <Badge tone="warn">koreksi manual</Badge>}<ProcLink code={ba.procurement.code} spp={ba.procurement.spp_number} tab="pasca" /></>}
         actions={can && <><LinkButton url={ba.link} label="Buka dokumen" size="sm" /><Link href={`/ba/${ba.id}/edit`}><Button icon={Pencil}>Ubah</Button></Link><Button icon={RotateCcw} onClick={() => setNewRound(true)}>Buat Putaran Revisi</Button><Button variant="primary" icon={CheckCheck} onClick={() => setOverride(true)}>Koreksi status</Button><Button variant="ghost" icon={Trash2} onClick={() => setDel(true)}>Hapus</Button></>} />
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_340px]">
@@ -39,7 +41,7 @@ export default function BaShow({ ba, pics }: Props) {
                   <div className="mt-3 flex items-center gap-2">{can && isActive ? <Select className="h-8" value={s.status} onChange={(e) => upd(s, { status: e.target.value })}>{['Belum Diproses', 'Proses TTD', 'Selesai TTD', 'Perlu Revisi'].map((x) => <option key={x}>{x}</option>)}</Select> : <StatusBadge status={s.status} />}<span className="text-[12px] text-mute">{s.signed_at ? `Selesai ${fmtDate(s.signed_at)}` : `Kirim ${fmtDate(s.sent_at)}`}</span></div>
                   {s.note && <p className="mt-2 text-[12.5px] text-mute">{s.note}</p>}
                 </div>))}</div>
-              {can && isActive && <div className="mt-4 flex items-center gap-2"><Select className="max-w-[320px]" value={addPic} onChange={(e) => setAddPic(e.target.value)}><option value="">Tambah PIC penandatangan</option>{pics.filter((x) => !round.signatories.some((s) => s.pic_id === x.id)).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select><Button icon={Plus} disabled={!addPic} onClick={() => router.post(`/ba-putaran/${round.id}/penandatangan`, { pic_id: addPic }, { preserveScroll: true, onSuccess: () => setAddPic('') })}>Tambah PIC</Button></div>}
+              {can && isActive && <div className="mt-4 flex items-center gap-2"><Select className="max-w-[320px]" value={addPic} onChange={(e) => setAddPic(e.target.value)}><option value="">Tambah PIC penandatangan</option>{pics.filter((x) => !round.signatories.some((s) => s.pic_id === x.id)).map((x) => <option key={x.id} value={x.id}>{x.name}{x.title ? ` — ${x.title}` : ""}</option>)}</Select><Button icon={Plus} disabled={!addPic} onClick={() => router.post(`/ba-putaran/${round.id}/penandatangan`, { pic_id: addPic }, { preserveScroll: true, onSuccess: () => setAddPic('') })}>Tambah PIC</Button></div>}
             </div>
           ) : <p className="p-5 text-[13px] text-mute">Belum ada sirkuler. Buat putaran untuk mengedarkan BA.</p>}
         </Card>

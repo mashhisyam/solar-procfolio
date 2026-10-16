@@ -11,6 +11,8 @@ function readSize(fallback: number): number {
 
 export interface Paged<T> {
   view: T[]; page: number; pages: number; size: number; total: number;
+  /** Jumlah baris sebelum halaman ini; nomor urut baris = start + indeks + 1. */
+  start: number;
   setPage: (n: number) => void; setSize: (n: number) => void;
 }
 
@@ -27,7 +29,7 @@ export function usePaged<T>(rows: T[], resetKey: string = '', initialSize = 25):
   useEffect(() => { if (page > pages) setPage(pages); }, [page, pages]);
   const view = useMemo(() => rows.slice((page - 1) * size, page * size), [rows, page, size]);
   const setSize = (n: number) => { setSizeState(n); setPage(1); try { localStorage.setItem(STORE_KEY, String(n)); } catch { /* abaikan */ } };
-  return { view, page, pages, size, total, setPage, setSize };
+  return { view, page, pages, size, total, start: (page - 1) * size, setPage, setSize };
 }
 
 /** Bilah paginasi: info jumlah, pilihan baris per halaman, dan tombol halaman. */

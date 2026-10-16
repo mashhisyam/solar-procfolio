@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { CalendarClock, CheckCircle2, AlertTriangle, AlertOctagon, Clock, Circle, Flame, SkipForward, Undo2, ChevronRight, CheckCheck, X, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { CalendarClock, CheckCircle2, AlertTriangle, AlertOctagon, Clock, Circle, Flame, SkipForward, Undo2, ChevronRight, CheckCheck, X, ArrowUp, ArrowDown, ArrowUpDown, RefreshCw } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Badge, Tone as UiTone, cx, TableWrap, th, td, SearchSelect } from '@/Components/ui';
+import { Badge, Button, Tone as UiTone, cx, TableWrap, th, td, SearchSelect } from '@/Components/ui';
+import { methodTone } from '@/lib/scheme';
 import { fmtDate, rp } from '@/lib/format';
 import { Pager, usePaged } from '@/Components/Pagination';
-import type { Alert, PageProps, Pic, ProcRow, StepNode } from '@/types';
+import type { Alert, PageProps, Pic, ProcRow, Revision, StepNode } from '@/types';
 
 const STATUS_TONE: Record<string, UiTone> = {
   Draft: 'neutral', 'Persiapan Dokumen': 'info', 'Dalam Approval': 'info', 'Kontrak Rilis': 'brand', 'Pasca Pengadaan': 'info', 'Amandemen Berjalan': 'warn', Gagal: 'bad', Selesai: 'ok', Dibatalkan: 'neutral',
@@ -198,10 +199,11 @@ export function TrackProgress({ row }: { row: ProcRow }) {
 }
 
 export type SortKey = 'priority' | 'spp' | 'title' | 'rab' | 'days' | 'update';
+// Status tepat setelah judul; Durasi Tahap tepat setelah Aktivitas Saat Ini.
 const COLS: { label: string; sort?: SortKey }[] = [
-  { label: 'Prioritas', sort: 'priority' }, { label: 'No SPP / ID', sort: 'spp' }, { label: 'Judul Pengadaan', sort: 'title' }, { label: 'RAB Pengadaan', sort: 'rab' },
-  { label: 'Skema / Metode' }, { label: 'User Pengaju' }, { label: 'Aliran Data' }, { label: 'Aktivitas Saat Ini' },
-  { label: 'PIC Aliran Data' }, { label: 'Durasi Tahap', sort: 'days' }, { label: 'Status' }, { label: 'Last Update', sort: 'update' },
+  { label: 'No' }, { label: 'Prioritas', sort: 'priority' }, { label: 'No SPP / ID', sort: 'spp' }, { label: 'Judul Pengadaan', sort: 'title' }, { label: 'Status' },
+  { label: 'RAB Pengadaan', sort: 'rab' }, { label: 'Skema / Metode' }, { label: 'User Pengaju' }, { label: 'Aliran Data' }, { label: 'Aktivitas Saat Ini' },
+  { label: 'Durasi Tahap', sort: 'days' }, { label: 'PIC Aliran Data' }, { label: 'Last Update', sort: 'update' },
 ];
 export function sortRows(rows: ProcRow[], k: SortKey, dir: 1 | -1): ProcRow[] {
   const v = (r: ProcRow): string | number => ({ priority: r.priority === 'Urgent' ? 1 : 0, spp: r.spp_number || r.code, title: r.title, rab: r.rab_value, days: r.days ?? -1, update: r.last_update }[k]);
@@ -209,26 +211,27 @@ export function sortRows(rows: ProcRow[], k: SortKey, dir: 1 | -1): ProcRow[] {
 }
 
 /** Satu tabel monitoring: dipakai Dashboard dan Daftar Pengadaan. */
-export function ProcTable({ rows, sort, onSort }: { rows: ProcRow[]; sort?: { k: SortKey; dir: 1 | -1 }; onSort?: (k: SortKey) => void }) {
+export function ProcTable({ rows, sort, onSort, start = 0 }: { rows: ProcRow[]; sort?: { k: SortKey; dir: 1 | -1 }; onSort?: (k: SortKey) => void; start?: number }) {
   return (
     <TableWrap>
       <thead><tr>{COLS.map((c) => { const on = c.sort && sort?.k === c.sort; return (
         <th key={c.label} className={th} aria-sort={on ? (sort!.dir === 1 ? 'ascending' : 'descending') : undefined}>
           {c.sort && onSort ? <button className="inline-flex items-center gap-1 hover:text-ink" onClick={() => onSort(c.sort!)}>{c.label}{on ? (sort!.dir === 1 ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} className="opacity-50" />}</button> : c.label}
         </th>); })}</tr></thead>
-      <tbody>{rows.map((r) => (
+      <tbody>{rows.map((r, rowIdx) => (
         <RowLink key={r.code} href={`/pengadaan/${r.code}`} className={cx(r.cancelled && 'opacity-60')}>
+          <td className={cx(td, 'num w-12 text-mute')}>{start + rowIdx + 1}</td>
           <td className={td}><PriorityBadge p={r.priority} /></td>
           <td className={cx(td, 'whitespace-nowrap')}><div className="num text-[13.5px] font-extrabold tracking-tight text-navy">{r.spp_number || '–'}</div><div className="num text-[11.5px] font-semibold text-mute">{r.code}</div></td>
           <td className={cx(td, 'min-w-[220px] max-w-[280px]')}><div className="line-clamp-2 font-semibold">{r.title}</div></td>
+          <td className={td}><StatusBadge status={r.status} />{r.revision && <div className="mt-1"><RevisionTag r={r.revision} /></div>}</td>
           <td className={cx(td, 'num whitespace-nowrap text-right font-semibold')}>{r.rab_value ? rp(r.rab_value) : '–'}</td>
-          <td className={cx(td, 'min-w-[120px]')}><Badge tone={r.method === 'SPP Pusat' ? 'navy' : 'teal'}>{r.method}</Badge>{r.proc_method && <div className="mt-1 whitespace-nowrap text-[11.5px] text-mute">{r.proc_method}</div>}</td>
+          <td className={cx(td, 'min-w-[120px]')}><Badge tone={methodTone(r.method)}>{r.method}</Badge>{r.proc_method && <div className="mt-1 whitespace-nowrap text-[11.5px] text-mute">{r.proc_method}</div>}</td>
           <td className={cx(td, 'whitespace-nowrap')}>{r.pengaju_name || '–'}</td>
           <td className={cx(td, 'min-w-[150px]')}><div className="text-[11px] font-semibold text-mute">{r.track === 'pasca' ? 'Pasca Pengadaan' : r.amendment ? 'Amandemen' : 'Proses Pengadaan'}</div><div className="font-semibold">{r.stage || '–'}{r.cycle > 1 && <span className="ml-1 text-[11.5px] text-warn">siklus {r.cycle}</span>}</div></td>
           <td className={cx(td, 'min-w-[130px]')}>{r.activity || '–'}</td>
-          <td className={cx(td, 'whitespace-nowrap')}>{r.pic || '–'}</td>
           <td className={cx(td, 'whitespace-nowrap')}>{r.days !== null ? (r.track === 'pengadaan' ? <DurationPill days={r.days} level={r.level} /> : <span className="num font-semibold">{r.days} hari</span>) : '–'}{r.late_days > 0 && <div className="mt-1"><Badge tone="bad">Terlambat {r.late_days} hari</Badge></div>}</td>
-          <td className={td}><StatusBadge status={r.status} /></td>
+          <td className={cx(td, 'whitespace-nowrap')}>{r.pic || '–'}</td>
           <td className={cx(td, 'whitespace-nowrap')}><div className="num">{fmtDate(r.last_update)}</div><div className="text-[12px] text-mute">{r.last_update_days === 0 ? 'hari ini' : `${r.last_update_days} hari lalu`}</div></td>
         </RowLink>
       ))}</tbody>
@@ -239,7 +242,7 @@ export function ProcTable({ rows, sort, onSort }: { rows: ProcRow[]; sort?: { k:
 /** Tabel monitoring dengan paginasi, untuk daftar pengadaan di halaman detail (PRK, perjanjian, PKS). */
 export function PagedProcTable({ rows }: { rows: ProcRow[] }) {
   const pg = usePaged(rows);
-  return <><ProcTable rows={pg.view} /><Pager p={pg} label="pengadaan" /></>;
+  return <><ProcTable rows={pg.view} start={pg.start} /><Pager p={pg} label="pengadaan" /></>;
 }
 
 /** Notifikasi singkat dari flash session. */
@@ -263,6 +266,48 @@ export function Toaster() {
           <button aria-label="Tutup" onClick={() => setItems((x) => x.filter((y) => y.id !== t.id))} className="text-mute hover:text-ink"><X size={15} /></button>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Label singkat revisi untuk tabel: Mayor merah, Minor kuning, berkedip agar menonjol. */
+export function RevisionTag({ r }: { r: Revision }) {
+  const major = r.type === 'mayor';
+  return (
+    <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-extrabold uppercase tracking-wide', major ? 'bg-bad text-white' : 'bg-warn text-white')}
+      title={`${major ? 'Revisi Mayor' : 'Revisi Minor'} dari ${r.from_stage}${r.reason ? `: ${r.reason}` : ''}`}>
+      <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" /></span>
+      {major ? 'Revisi Mayor' : 'Revisi Minor'} · {r.days} hr
+    </span>
+  );
+}
+
+/**
+ * Banner revisi di halaman detail: siapa yang mengembalikan, alasannya, sudah berapa lama menunggu,
+ * dan apa yang terjadi setelah diperbaiki. Dibuat mencolok agar pengaju segera menindaklanjuti.
+ */
+export function RevisionBanner({ r, onAction }: { r: Revision; onAction?: () => void }) {
+  const major = r.type === 'mayor';
+  const late = r.level === 'bad' || r.level === 'warn';
+  return (
+    <div role="alert" className={cx('mb-5 overflow-hidden rounded-xl border-2 shadow-card', major ? 'border-bad bg-badsoft' : 'border-warn bg-warnsoft')}>
+      <div className={cx('flex flex-wrap items-center gap-3 px-4 py-2.5 text-white', major ? 'bg-bad' : 'bg-warn')}>
+        <AlertTriangle size={18} />
+        <b className="text-[14.5px] uppercase tracking-wide">{major ? 'Revisi Mayor — perbaiki segera' : 'Revisi Minor — perbaiki segera'}</b>
+        <span className="num ml-auto rounded-full bg-white/20 px-2.5 py-0.5 text-[12.5px] font-bold">{r.days} hari kerja menunggu perbaikan{late ? ' · melewati batas' : ''}</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 px-4 py-3 text-[13px] md:grid-cols-[1fr_auto]">
+        <div className="space-y-1.5">
+          <p>Dikembalikan oleh <b>{r.from_stage}</b>{r.from_pic ? ` (${r.from_pic})` : ''} pada <b>{fmtDate(r.since)}</b>. Saat ini di <b>{r.owner_stage}</b>{r.owner ? ` — ${r.owner}` : ''}.</p>
+          {r.reason && <p className={cx('rounded-lg bg-surface px-3 py-2 font-medium', major ? 'text-bad' : 'text-warn')}>Alasan: {r.reason}</p>}
+          <p className="text-ink/80">
+            {major
+              ? <>Setelah diperbaiki, <b>seluruh approval diulang dari awal</b> (siklus approval {r.cycle}). Setiap hari keterlambatan menambah waktu proses seluruh jenjang.</>
+              : <>Setelah diperbaiki, proses <b>langsung kembali ke {r.resume_stage || r.from_stage}</b> tanpa mengulang approval.</>}
+          </p>
+        </div>
+        {onAction && <div className="self-center"><Button variant="primary" icon={RefreshCw} onClick={onAction}>Update Proses</Button></div>}
+      </div>
     </div>
   );
 }

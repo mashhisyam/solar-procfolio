@@ -1,77 +1,39 @@
-# Patch 9 — Procfolio (18 Okt 2026)
+# Patch 16 — 23 Okt 2026
 
-Berisi hanya file yang berubah, dengan struktur folder sama. Timpa ke repositori (branch `develop`), lalu jalankan perintah di bawah.
+Dipasang di atas patch 15. Timpa file ke repositori (branch `develop`).
 
-## 1. Bersihkan dulu (manual, patch tidak bisa menghapus file)
-
-Hapus empat file nyasar di root repo; isinya duplikat dan membuat `pint --test` di CI gagal:
-
-```
-ContractController.php
-CustomerContractController.php
-ProcurementPresenter.php
-web.php
-```
-
-Hapus juga folder kosong `resources/js/Pages/{Contracts,CustomerContracts,Pks,BeritaAcara,Documents,Settlement,Master}` bila ada.
-`.github/workflows/ci.yml` di working tree Anda terhapus; patch ini memulihkannya.
-
-## 2. Perintah
+## Perintah
 
 ```powershell
 $env:Path = "C:\php84;$env:Path"
-php artisan migrate                 # revisi_9: Kontrak Pengadaan, nomor PA, sub bidang PRK
-php artisan db:seed --class=ReferenceSeeder   # ikut menjalankan PrkSeeder (database/data/prk.csv)
+php artisan migrate          # prk_katalog: memuat seluruh PRK dari database/data/prk.csv (PLN 1 + PLN 2)
 php artisan config:clear
-php artisan test                    # 27 tes, seharusnya lulus semua
+php artisan test             # 47 tes
 npm run build
 ```
 
-Data demo dari awal (menghapus semua data):
+## Isi
 
-```powershell
-php artisan migrate:fresh --seed
-php artisan db:seed --class=DemoSeeder
-```
+1. **Master Daftar tidak bisa menambah.** Di server, penambahan oleh Super Admin berhasil, baik di SQLite maupun PostgreSQL. Yang bermasalah ada di tampilan:
+   - Bila penyimpanan gagal (mis. pilihan sudah ada), pesan error sebelumnya tidak ditampilkan dan input tidak dikosongkan, sehingga terlihat seperti tidak terjadi apa-apa. Pilihan ganda sebelumnya bahkan memicu error database.
+   - Sekarang pesan muncul di kartu daftar tersebut, pilihan ganda ditolak dengan pesan yang jelas (tanpa membedakan huruf besar/kecil), dan Enter juga bisa dipakai untuk menambah.
+2. **Peran PIC:** isian teks dengan saran (datalist) diganti dropdown berisi semua nama tahap di template alur (termasuk Manager Sales, L1/VP Sales, tahap SPR, Pasca), ditambah Finance dan Penandatangan. Peran lama di luar daftar tetap ditampilkan.
+3. **Nomor urut** di semua daftar: Daftar Pengadaan, PRK, perjanjian, PKS, SP2K/PO, dokumen, BA, tahapan, Kelola Pengguna, Master, dan tab Dokumen/Riwayat di detail. Nomor berlanjut antarhalaman.
+5. **Tambah PIC penandatangan** di detail BA menampilkan "Nama — Jabatan".
+6. **Urutan kolom Daftar Pengadaan:** No · Prioritas · No SPP/ID · Judul · **Status** · RAB · Skema · User Pengaju · Aliran Data · Aktivitas Saat Ini · **Durasi Tahap** · PIC · Last Update.
+7. **Menu "Daftar TOR, BCR, BAK"** (dulu Dokumen): hanya memuat TOR, BCR, dan BAK. Dokumen lain tetap ada di tab Dokumen pada detail pengadaan.
+8. **Menu "Berita Acara Penyelesaian"** (dulu Berita Acara).
+9. **PRK PLN 1** dari capture ditambahkan ke `database/data/prk.csv`:
+   - Lima kode: IC01062023, IC00462022, IC00892023, IC01362022, IC00472022 (cost center I0326 - SUB BID SOL ARCH PLN 1).
+   - Migrasi `prk_katalog` dan `ReferenceSeeder` keduanya memuat CSV ini, sehingga daftar PRK selalu terbawa setelah `migrate`, `migrate:fresh`, atau seeding.
+   - Nilai Pengajuan tidak terlihat di capture, jadi masih 0. Isi di menu RKAP, atau lengkapi kolom `nilai_pengajuan` di CSV.
+   - Data demo kini memakai PRK PLN 1 yang asli (IC00892023 dan IC00472022), bukan lagi PRK PLN 2 yang dipaksa menjadi PLN 1.
 
-Sebagian besar data demo berumur lebih dari 2 bulan. Pilih periode **6 bulan** atau **Semua waktu** untuk melihat semuanya.
+Menambah PRK berikutnya: tambahkan baris di `database/data/prk.csv`, lalu jalankan `php artisan db:seed --class=PrkSeeder`.
 
-## 3. Ringkasan isi
+## Pengujian
 
-**Detail Pengadaan**
-- Kontrak di samping SP2K/PO bernama **Kontrak Pengadaan**, disimpan di `vendor_contracts` (`is_primary = false`). Kartunya sama dengan SP2K/PO: Koreksi data, Ajukan Amandemen, Halaman kontrak. Tab: "SP2K & Kontrak Pengadaan".
-- Vendor otomatis pemenang. Tidak membentuk tahapan pembayaran dan tidak mengubah Cost. Satu amandemen berjalan per pengadaan.
-- **PA** bukan lagi perjanjian pelanggan; cukup "Nomor PA" di langkah 2. Dasar pelanggan = minimal satu perjanjian pelanggan **atau** nomor PA. Data PA lama dipindah otomatis ke nomor PA (revenue PA lama tidak ikut).
-
-**Tambah Pengadaan**
-- Langkah 2 kosong: controller tidak mengirim `ccKinds`. Diperbaiki. PRK di langkah 3 kini benar-benar tersaring per sub bidang.
-
-**RKAP**
-- Hanya 7 PRK yang ada di seeder; empat di antaranya tanpa sub bidang sehingga tidak tampil. Sub bidang kini diisi dari nama cost center, dan ada tab "Tanpa sub bidang".
-- Impor daftar PRK: isi `database/data/prk.csv` lalu `php artisan db:seed --class=PrkSeeder`.
-
-**Dashboard** (tanpa daftar pengadaan)
-- RAB Usulan Pengadaan, RAB Realisasi (Terkontrak), Revenue, Tahap Belum Dibayar.
-- Revenue vs Cost per perjanjian pelanggan: Revenue, RAB Pengadaan, Nilai SP2K (tanpa nama vendor).
-- Persebaran pengadaan aktif per posisi; klik batang membuka Daftar Pengadaan tersaring.
-- Top 5 dengan kategori pilihan: Waktu (terlama/tercepat), Nilai SP2K atau PO (terbesar/terkecil), Proses Approval (rata-rata per kelompok atau 5 pengadaan per kelompok), Vendor pemenang.
-
-**Umum**
-- Wordmark logo bergradien (sidebar dan login).
-- Paginasi + pilihan 10/25/50/100 baris di semua daftar.
-- Filter periode registrasi: 2 bulan (bawaan), 6 bulan, 1 tahun, Semua waktu.
-
-**Perbaikan lain**
-- Alert pengadaan tidak pernah tercatat (arrow function menyalin array). Kartu "Butuh Perhatian" sebelumnya selalu 0.
-- Sub bidang Perjanjian Pelanggan tidak tersimpan.
-- Peran Manager Sales dan L1/VP Sales di daftar saran PIC.
-- Relasi Eloquent diberi tipe generik; baseline PHPStan 334 → 11 catatan.
-
-## 4. Yang sudah dan belum diuji
-
-Diuji di lingkungan saya (PHP 8.3 + SQLite, bukan PHP 8.4 + PostgreSQL):
-- `php artisan test`: 27 lulus, termasuk DemoSeeder dan alur Kontrak Pengadaan.
-- Migrasi `revisi_9` naik dan rollback pada data lama.
-- `pint --test`, `phpstan` (0 error), `tsc --noEmit`, `vite build`.
-
-Belum diuji: migrasi di PostgreSQL, dan tampilan di peramban.
+- 47 tes lulus di SQLite **dan di PostgreSQL 16**. Ini pertama kalinya seluruh migrasi, seeder, dan tes dijalankan di PostgreSQL.
+- `migrate:fresh --seed` + DemoSeeder berjalan di PostgreSQL 16.
+- Pint, PHPStan (0 error), `tsc`, `vite build` bersih.
+- Belum diuji di peramban.

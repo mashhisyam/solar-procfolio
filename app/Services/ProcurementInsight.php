@@ -10,6 +10,7 @@ use App\Models\PaymentTerm;
 use App\Models\Procurement;
 use App\Models\StageVisit;
 use App\Models\WorkflowTemplate;
+use App\Support\Scheme;
 use App\Support\WorkdayCalendar as Cal;
 use Illuminate\Support\Collection;
 
@@ -213,6 +214,12 @@ class ProcurementInsight
             $out[] = compact('code', 'tone', 'label', 'target');
         };
 
+        // Revisi dicantumkan paling atas: Mayor merah, Minor kuning, agar segera diperbaiki pengaju.
+        if ($rev = $this->revision($p)) {
+            $add('revisi', $rev['type'] === 'mayor' ? 'bad' : 'warn',
+                ($rev['type'] === 'mayor' ? 'Revisi Mayor' : 'Revisi Minor')." dari {$rev['from_stage']} · {$rev['days']} hari kerja menunggu perbaikan", 'proses');
+        }
+
         $v = $this->currentApproval($p);
         if ($v) {
             $days = $this->visitDays($v);
@@ -221,10 +228,10 @@ class ProcurementInsight
                 $add($lvl === 'bad' ? 'dur-bad' : 'dur-warn', $lvl, "{$v->stage_name} {$days} hari", 'proses');
             }
         }
-        // Dasar pelanggan: perjanjian pelanggan atau nomor PA.
-        $hasBasis = $p->customerContracts->isNotEmpty() || filled($p->pa_number);
+        // Perjanjian pelanggan wajib; nomor PA hanya pelengkap.
+        $hasBasis = $p->customerContracts->isNotEmpty();
         if (! $hasBasis) {
-            $add('basis', 'warn', 'Belum ada perjanjian pelanggan atau nomor PA', 'ringkasan');
+            $add('basis', 'warn', 'Belum ada perjanjian pelanggan', 'ringkasan');
         }
         if ($this->postState($p) === 'noterm') {
             $add('noterm', 'info', 'Tahapan pembayaran belum dibuat', 'pasca');
@@ -283,7 +290,7 @@ class ProcurementInsight
         $s = $p->priority === 'Urgent' ? 100 : 0;
         foreach ($alerts as $a) {
             $s += match ($a['code']) {
-                'dur-bad', 'late' => 60, 'no-update' => 30, 'dur-warn' => 20, default => 10
+                'revisi' => $a['tone'] === 'bad' ? 80 : 50, 'dur-bad', 'late' => 60, 'no-update' => 30, 'dur-warn' => 20, default => 10
             };
         }
 
@@ -339,7 +346,7 @@ class ProcurementInsight
             'pic' => $v?->pic?->name, 'days' => $days, 'level' => $track === 'pengadaan' ? $this->durLevel($days) : null,
             'late_days' => $late, 'status' => $this->status($p), 'last_update' => $lu,
             'last_update_days' => $this->cal->workdaysBetween($lu, $this->today()),
-            'alerts' => $alerts, 'score' => $this->score($p, $alerts), 'registered_at' => Cal::iso($p->registered_at),
+            'alerts' => $alerts, 'score' => $this->score($p, $alerts), 'revision' => $this->revision($p), 'registered_at' => Cal::iso($p->registered_at),
             'vendor' => $p->contract?->vendor?->name, 'sub_bidang' => $p->sub_bidang,
             'stage_key' => $v?->stage_key, 'pic_id' => $v?->pic_id,
             'position' => $scheduled ? 'Terjadwal' : $position, 'process_days' => $this->processDays($p),
@@ -391,7 +398,7 @@ class ProcurementInsight
             $am = $p->contractAmendments()->firstWhere('id', $amendmentId);
             $nodes[] = ['key' => 'final', 'group' => null, 'name' => 'Amandemen Rilis', 'state' => $am?->status === 'Rilis' ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($am?->date), 'days' => null, 'scheduled' => false];
         } else {
-            $nodes[] = ['key' => 'final', 'group' => null, 'name' => $p->method === 'SPP Pusat' ? 'SP2K Rilis' : 'PO Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
+            $nodes[] = ['key' => 'final', 'group' => null, 'name' => Scheme::finalDoc($p->method).' Rilis', 'state' => $p->contract ? 'done' : 'pending', 'cycles' => 0, 'date' => Cal::iso($p->contract?->date), 'days' => null, 'scheduled' => false];
         }
 
         return $nodes;
@@ -407,6 +414,36 @@ class ProcurementInsight
             'return_reason' => $v->return_reason, 'return_type' => $v->return_type, 'resume_key' => $v->resume_key, 'amendment_id' => $v->amendment_id,
             'activities' => $v->activities->map(fn ($a) => ['date' => Cal::iso($a->date), 'category' => $a->category, 'note' => $a->note, 'kind' => $a->kind])->values(),
         ])->values()->all();
+    }
+
+    /**
+     * Pengadaan yang sedang dikembalikan untuk direvisi: tahap berjalan adalah tahap pertama setelah kunjungan
+     * yang berstatus Dikembalikan (Revisi Minor/Mayor). Null bila tidak sedang direvisi.
+     *
+     * @return array{type:string, from_stage:string, from_pic:?string, reason:?string, since:?string, days:int, level:?string, owner:?string, owner_stage:string, resume_stage:?string, cycle:int}|null
+     */
+    public function revision(Procurement $p): ?array
+    {
+        return $this->once($p, 'revision', function () use ($p) {
+            $cur = $this->currentApproval($p);
+            if (! $cur || $p->cancelled_at) {
+                return null;
+            }
+            $prev = $p->visits->where('track', Track::Pengadaan->value)->where('amendment_id', $cur->amendment_id)
+                ->filter(fn (StageVisit $x) => $x->id < $cur->id)->sortBy('id')->last();
+            if (! $prev || ! $prev->return_type || $prev->status !== VisitStatus::Returned->value) {
+                return null;
+            }
+            $days = $this->visitDays($cur);
+
+            return [
+                'type' => $prev->return_type, 'from_stage' => $prev->stage_name, 'from_pic' => $prev->pic?->name, 'reason' => $prev->return_reason,
+                'since' => Cal::iso($prev->completed_at ?? $cur->entered_at), 'days' => $days, 'level' => $this->durLevel($days),
+                'owner' => $cur->pic?->name, 'owner_stage' => $cur->stage_name,
+                'resume_stage' => $cur->resume_key ? (collect($p->workflow)->firstWhere('key', $cur->resume_key)['name'] ?? null) : null,
+                'cycle' => $this->approvalCycle($p, $cur->amendment_id),
+            ];
+        });
     }
 
     /** Siklus approval Proses Pengadaan: 1 + jumlah Revisi Mayor pada alur yang sama. */

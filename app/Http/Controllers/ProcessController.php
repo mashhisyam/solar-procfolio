@@ -40,7 +40,12 @@ class ProcessController extends Controller
             'bucket_code' => ['nullable', 'string', 'max:60'],
             'bucket_number' => ['nullable', 'string', 'max:60'],
             'bucket_link' => ['nullable', 'string', 'max:1000'],
+            // Nomor PA dapat dilengkapi saat approval Sales bila belum diisi saat registrasi.
+            'pa_number' => ['nullable', 'string', 'max:255'],
         ]);
+        if (filled($d['pa_number'] ?? null) && $d['track'] === 'pengadaan') {
+            $this->workflow->recordPaNumber($procurement, $d['pa_number']);
+        }
         $res = $this->workflow->updateProcess($procurement, $d);
 
         return back()->with('success', $res['message'])->with('next', $res['next'] ? ['type' => $res['next'], 'amendment_id' => $res['amendment_id']] : null);

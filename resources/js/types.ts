@@ -3,7 +3,12 @@ export type Tone = 'bad' | 'warn' | 'info' | 'ok';
 export interface PageProps {
   app: { name: string; today: string };
   period: { key: string; since: string | null; options: { value: string; label: string }[] };
-  auth: { user: { id: number; name: string; email: string; role: string } | null; can: { edit: boolean; admin: boolean } };
+  auth: {
+    user: { id: number; name: string; email: string; role: string; role_label: string } | null;
+    /** Hak akses per menu; lihat App\Support\Access. */
+    access: Record<string, 'none' | 'view' | 'edit'>;
+    can: { edit: boolean; admin: boolean; super: boolean };
+  };
   flash: { success?: string | null; error?: string | null; next?: { type: string; amendment_id?: number | null } | null };
   errors: Record<string, string>;
   [key: string]: unknown;
@@ -13,7 +18,7 @@ export interface Alert { code: string; tone: Tone; label: string; target: string
 
 /** Baris tabel monitoring (Dashboard & Daftar Pengadaan). */
 export interface ProcRow {
-  code: string; spp_number: string | null; title: string; rab_value: number; method: 'SPP Pusat' | 'SPP Kemitraan'; proc_method: string | null;
+  code: string; spp_number: string | null; title: string; rab_value: number; method: 'SPP Pusat' | 'SPP Kemitraan' | 'SPR'; proc_method: string | null; revision?: Revision | null;
   priority: 'Normal' | 'Urgent'; pengaju_name: string;
   progress: { approval: (string | null)[]; contract: boolean; terms: { paid: boolean; scheduled: boolean; stage: string | null }[] };
   track: 'pengadaan' | 'pasca'; amendment: boolean; stage: string | null; cycle: number; activity: string | null; pic: string | null;
@@ -41,3 +46,9 @@ export interface Term {
 }
 
 export interface BaSummary { id: number; type: string; number: string | null; title: string; date: string | null; link: string | null; status: string; round: number; signed: number; total: number; days: number; term_ids: number[]; term_seqs: number[] }
+
+/** Pengadaan yang dikembalikan untuk direvisi (Revisi Minor/Mayor) dan menunggu perbaikan pengaju. */
+export interface Revision {
+  type: 'minor' | 'mayor'; from_stage: string; from_pic: string | null; reason: string | null; since: string | null; days: number;
+  level: 'ok' | 'warn' | 'bad' | null; owner: string | null; owner_stage: string; resume_stage: string | null; cycle: number;
+}

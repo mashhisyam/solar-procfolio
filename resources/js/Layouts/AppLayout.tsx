@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, Landmark, LayoutDashboard, ListChecks, Handshake, ScrollText, FileSignature, FileStack, PenLine, Receipt, Settings2, Moon, Sun, Menu as MenuIcon, X, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowLeft, Landmark, LayoutDashboard, ListChecks, Handshake, ScrollText, FileSignature, FileStack, PenLine, Receipt, Settings2, Moon, Sun, Menu as MenuIcon, X, LogOut, PanelLeftClose, PanelLeftOpen, UsersRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cx } from '@/Components/ui';
 import { Toaster } from '@/Components/common';
 import type { PageProps } from '@/types';
+import { type MenuKey, useAccess } from '@/lib/access';
 
-const NAV: { group: string; admin?: boolean; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
-  { group: 'Monitoring', items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }, { href: '/pengadaan', label: 'Daftar Pengadaan', icon: ListChecks }, { href: '/rkap', label: 'RKAP', icon: Landmark }] },
-  { group: 'Daftar Dokumen', items: [{ href: '/bakb', label: 'Perjanjian Pelanggan', icon: Handshake }, { href: '/pks', label: 'PKS & Amandemen', icon: ScrollText }, { href: '/kontrak', label: 'SP2K/PO & Kontrak', icon: FileSignature }] },
-  { group: 'Register', items: [{ href: '/dokumen', label: 'Dokumen', icon: FileStack }, { href: '/ba', label: 'Berita Acara', icon: PenLine }, { href: '/tahapan', label: 'Tahapan, GR & Invoice', icon: Receipt }] },
-  { group: 'Pengaturan', admin: true, items: [{ href: '/master', label: 'Master & Konfigurasi', icon: Settings2 }] },
+type NavItem = { href: string; label: string; icon: LucideIcon; menu?: MenuKey; super?: boolean };
+/** Menu ditampilkan menurut hak akses pengguna; Kelola Pengguna hanya untuk Super Admin. */
+const NAV: { group: string; items: NavItem[] }[] = [
+  { group: 'Monitoring', items: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard, menu: 'dashboard' }, { href: '/pengadaan', label: 'Daftar Pengadaan', icon: ListChecks, menu: 'pengadaan' }, { href: '/rkap', label: 'RKAP', icon: Landmark, menu: 'rkap' }] },
+  { group: 'Daftar Dokumen', items: [{ href: '/bakb', label: 'Perjanjian Pelanggan', icon: Handshake, menu: 'bakb' }, { href: '/pks', label: 'PKS & Amandemen', icon: ScrollText, menu: 'pks' }, { href: '/kontrak', label: 'SP2K/PO & Kontrak', icon: FileSignature, menu: 'kontrak' }] },
+  { group: 'Register', items: [{ href: '/dokumen', label: 'Daftar TOR, BCR, BAK', icon: FileStack, menu: 'dokumen' }, { href: '/ba', label: 'Berita Acara Penyelesaian', icon: PenLine, menu: 'ba' }, { href: '/tahapan', label: 'Tahapan, GR & Invoice', icon: Receipt, menu: 'tahapan' }] },
+  { group: 'Pengaturan', items: [{ href: '/master', label: 'Master & Konfigurasi', icon: Settings2, menu: 'master' }, { href: '/pengguna', label: 'Kelola Pengguna', icon: UsersRound, super: true }] },
 ];
 
 function useTheme() {
@@ -22,6 +25,8 @@ function useTheme() {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { url, props } = usePage<PageProps>();
   const { auth, app } = props;
+  const access = useAccess();
+  const nav = NAV.map((g) => ({ ...g, items: g.items.filter((it) => (it.super ? access.isSuper : !it.menu || access.canView(it.menu))) })).filter((g) => g.items.length);
   const { theme, toggle } = useTheme();
   const [mobile, setMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('procfolio-side') === '1'; } catch { return false; } });
@@ -37,7 +42,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {!mini && <span><span className="grad-text block pb-0.5 font-display text-[23px] font-extrabold leading-none tracking-[-0.015em]">Procfolio</span><span className="mt-1 block text-[11px] leading-tight text-mute">Procurement Portfolio Monitoring</span></span>}
       </Link>
       <nav className={cx('flex-1 overflow-y-auto pb-3', mini ? 'px-2' : 'px-3')} aria-label="Menu utama">
-        {NAV.filter((g) => !g.admin || auth.can.admin).map((g) => (
+        {nav.map((g) => (
           <div key={g.group} className="mt-3">
             {mini ? <div className="mx-2 mb-1 border-t border-line" /> : <div className="px-2.5 pb-1 text-[11.5px] font-semibold text-mute">{g.group}</div>}
             {g.items.map((it) => {

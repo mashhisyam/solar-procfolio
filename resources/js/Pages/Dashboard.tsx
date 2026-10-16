@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Plus, Workflow, Flame, BellRing, Wallet, RotateCcw, Filter, CheckCheck, TrendingUp, Route, Trophy, ClipboardList, FileSignature, Scale, XCircle, Ban } from 'lucide-react';
+import { Plus, Workflow, Flame, BellRing, Wallet, RotateCcw, Filter, CheckCheck, TrendingUp, Route, Trophy, ClipboardList, FileSignature, Scale, XCircle, Ban, AlertTriangle, ArrowRight, Shapes } from 'lucide-react';
 import { Badge, Button, Card, CardHead, EmptyState, Segmented, Select, cx } from '@/Components/ui';
 import { MetricCard, PageHeader } from '@/Components/common';
 import { PeriodFilter } from '@/Components/PeriodFilter';
 import { Pager, usePaged } from '@/Components/Pagination';
 import { fmtDateLong, rp, rpShort } from '@/lib/format';
+import { METHODS } from '@/lib/scheme';
+import { useAccess } from '@/lib/access';
 import type { PageProps } from '@/types';
 
 type Ident = { code: string; spp_number: string | null; title: string; method: string; note?: string };
@@ -13,10 +15,10 @@ type TimeItem = Ident & { days: number; done: boolean };
 type ValueItem = Ident & { value: number };
 type DaysItem = Ident & { days: number };
 type VendorItem = { vendor: string; count: number; value: number; sp2k: number; po: number };
-interface Position { name: string; track: 'pengadaan' | 'pasca'; count: number; spp: number; kemitraan: number; stage_avg: number | null; stage_max: number | null; process_avg: number | null }
+interface Position { name: string; track: 'pengadaan' | 'pasca'; count: number; spp: number; kemitraan: number; spr: number; stage_avg: number | null; stage_max: number | null; process_avg: number | null }
 interface CcRow { id: number; kind: string; number: string; title: string; customer: string | null; revenue: number; rab: number; contract_value: number; count: number; contracted: number }
 interface Props {
-  kpi: { active: number; spp: number; kemitraan: number; urgent: number; attention: number; done: number; unpaid_terms: number; unpaid_value: number };
+  kpi: { active: number; spp: number; kemitraan: number; spr: number; revision_major: number; revision_minor: number; urgent: number; attention: number; done: number; unpaid_terms: number; unpaid_value: number };
   money: { rab_proposed: number; rab_proposed_count: number; rab_realized: number; rab_realized_count: number; revenue: number };
   per_customer_contract: CcRow[];
   positions: Position[];
@@ -25,6 +27,7 @@ interface Props {
     value: Record<'SP2K' | 'PO', { largest: ValueItem[]; smallest: ValueItem[] }>;
     approval: { groups: { name: string; avg: number | null; count: number }[]; items: Record<string, { fastest: DaysItem[]; slowest: DaysItem[] }> };
     vendor: { by_count: VendorItem[]; by_value: VendorItem[] };
+    category: { name: string; count: number; rab: number; contracted: number }[];
   };
   stopped: { gagal: number; gagal_rab: number; batal: number; batal_rab: number; by_position: { name: string; gagal: number; batal: number }[] };
   filters: { method: string; priority: string; pengaju: number; cc: number };
@@ -36,6 +39,7 @@ const QUERY: Record<keyof Props['filters'], string> = { method: 'skema', priorit
 
 export default function Dashboard({ kpi, money, per_customer_contract: perCc, positions, top, stopped, filters, options }: Props) {
   const { app, auth } = usePage<PageProps>().props;
+  const access = useAccess();
   const apply = (patch: Partial<Props['filters']>) => {
     const next = { ...filters, ...patch };
     const q: Record<string, string> = {};
@@ -49,13 +53,13 @@ export default function Dashboard({ kpi, money, per_customer_contract: perCc, po
       <Head title="Dashboard" />
       <PageHeader title="Dashboard Monitoring"
         meta={<span className="text-[12.5px] text-mute">Data per {fmtDateLong(app.today)}</span>}
-        actions={auth.can.edit && <Link href="/pengadaan/baru"><Button variant="primary" icon={Plus}>Tambah Pengadaan</Button></Link>} />
+        actions={access.canEdit('pengadaan') && <Link href="/pengadaan/baru"><Button variant="primary" icon={Plus}>Tambah Pengadaan</Button></Link>} />
 
       <div className="mb-5 space-y-2.5 rounded-xl border border-line bg-surface p-3 shadow-card">
         <PeriodFilter />
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 px-0.5 text-[12.5px] font-semibold text-mute"><Filter size={14} />Filter</span>
-          <div className="w-[160px]"><Select value={filters.method} onChange={(e) => apply({ method: e.target.value })} aria-label="Skema"><option value="">Semua skema</option><option>SPP Pusat</option><option>SPP Kemitraan</option></Select></div>
+          <div className="w-[160px]"><Select value={filters.method} onChange={(e) => apply({ method: e.target.value })} aria-label="Skema"><option value="">Semua skema</option>{METHODS.map((m) => <option key={m}>{m}</option>)}</Select></div>
           <div className="w-[165px]"><Select value={filters.priority} onChange={(e) => apply({ priority: e.target.value })} aria-label="Prioritas"><option value="">Semua prioritas</option><option>Urgent</option><option>Normal</option></Select></div>
           <div className="w-[210px]"><Select value={filters.pengaju || ''} onChange={(e) => apply({ pengaju: Number(e.target.value) || 0 })} aria-label="User Pengaju"><option value="">Semua User Pengaju</option>{options.pengaju.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></div>
           <div className="w-[240px]"><Select value={filters.cc || ''} onChange={(e) => apply({ cc: Number(e.target.value) || 0 })} aria-label="Perjanjian pelanggan"><option value="">Semua perjanjian pelanggan</option>{options.customerContracts.map((c) => <option key={c.id} value={c.id}>{c.kind} · {c.number}</option>)}</Select></div>
@@ -63,8 +67,17 @@ export default function Dashboard({ kpi, money, per_customer_contract: perCc, po
         </div>
       </div>
 
+      {kpi.revision_major + kpi.revision_minor > 0 && (
+        <Link href="/pengadaan?seg=revisi" role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border-2 border-bad bg-badsoft px-4 py-3 text-[13.5px] shadow-card hover:bg-badsoft/80">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-bad text-white"><AlertTriangle size={18} /></span>
+          <span className="min-w-0 flex-1"><b className="text-bad">{kpi.revision_major + kpi.revision_minor} pengadaan menunggu revisi pengaju.</b> <span className="text-ink/80">Revisi Mayor mengulang seluruh approval; makin lama diperbaiki, makin panjang proses.</span></span>
+          {kpi.revision_major > 0 && <span className="num rounded-full bg-bad px-2.5 py-1 text-[12px] font-extrabold uppercase text-white">Mayor {kpi.revision_major}</span>}
+          {kpi.revision_minor > 0 && <span className="num rounded-full bg-warn px-2.5 py-1 text-[12px] font-extrabold uppercase text-white">Minor {kpi.revision_minor}</span>}
+          <span className="flex items-center gap-1 font-semibold text-bad">Lihat daftar <ArrowRight size={14} /></span>
+        </Link>
+      )}
       <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-        <Link href="/pengadaan" className="contents"><MetricCard label="Pengadaan Aktif" value={kpi.active} sub={`SPP Pusat ${kpi.spp} · Kemitraan ${kpi.kemitraan}`} icon={Workflow} /></Link>
+        <Link href="/pengadaan" className="contents"><MetricCard label="Pengadaan Aktif" value={kpi.active} sub={`SPP Pusat ${kpi.spp} · Kemitraan ${kpi.kemitraan} · SPR ${kpi.spr}`} icon={Workflow} /></Link>
         <Link href="/pengadaan?seg=urgent" className="contents"><MetricCard label="Urgent" value={kpi.urgent} sub="Pengadaan aktif berprioritas Urgent" icon={Flame} tone="bad" /></Link>
         <Link href="/pengadaan?seg=perhatian" className="contents"><MetricCard label="Butuh Perhatian" value={kpi.attention} sub="Durasi kuning/merah, terlambat, atau tertahan" icon={BellRing} tone="warn" /></Link>
         <Link href="/pengadaan?seg=selesai" className="contents"><MetricCard label="Selesai" value={kpi.done} sub="Seluruh tahap telah dibayar" icon={CheckCheck} tone="info" /></Link>
@@ -137,12 +150,13 @@ function PositionSpread({ positions }: { positions: Position[] }) {
           <div className="flex min-w-max items-end gap-2" style={{ height: 190 }}>
             {list.map((p) => (
               <button key={p.name} onClick={() => p.count && go(p.name)} disabled={!p.count}
-                title={`${p.name}: ${p.count} pengadaan (SPP Pusat ${p.spp}, Kemitraan ${p.kemitraan})${p.stage_avg !== null ? ` · rata-rata ${p.stage_avg} hari di tahapan` : ''}`}
+                title={`${p.name}: ${p.count} pengadaan (SPP Pusat ${p.spp}, Kemitraan ${p.kemitraan}, SPR ${p.spr})${p.stage_avg !== null ? ` · rata-rata ${p.stage_avg} hari di tahapan` : ''}`}
                 className={cx('group flex h-full w-[74px] flex-col items-center justify-end', p.count ? 'cursor-pointer' : 'cursor-default')}>
                 <span className={cx('num mb-1 text-[13px] font-extrabold', p.count ? 'text-ink' : 'text-mute/60')}>{p.count}</span>
                 <span className="flex w-9 flex-col-reverse overflow-hidden rounded-t-md bg-sunken transition group-hover:opacity-80" style={{ height: `${Math.max(4, (p.count / max) * 130)}px` }}>
                   {p.spp > 0 && <span className="w-full bg-navy" style={{ height: `${(p.spp / Math.max(1, p.count)) * 100}%` }} />}
                   {p.kemitraan > 0 && <span className="w-full bg-teal" style={{ height: `${(p.kemitraan / Math.max(1, p.count)) * 100}%` }} />}
+                  {p.spr > 0 && <span className="w-full bg-brand" style={{ height: `${(p.spr / Math.max(1, p.count)) * 100}%` }} />}
                 </span>
                 <span className="mt-1.5 line-clamp-2 h-[30px] text-center text-[11px] font-semibold leading-tight text-ink/80">{p.name}</span>
               </button>
@@ -156,7 +170,7 @@ function PositionSpread({ positions }: { positions: Position[] }) {
   return (
     <Card className="mb-5">
       <CardHead icon={Route} title="Persebaran Proses Pengadaan per Posisi" desc={`${total} pengadaan aktif. Klik batang untuk membuka daftarnya.`}
-        actions={<div className="flex items-center gap-3 text-[12px] text-mute"><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-navy" />SPP Pusat</span><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-teal" />SPP Kemitraan</span></div>} />
+        actions={<div className="flex items-center gap-3 text-[12px] text-mute"><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-navy" />SPP Pusat</span><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-teal" />SPP Kemitraan</span><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-brand" />SPR</span></div>} />
       <div className="grid grid-cols-1 gap-6 px-5 pb-4 pt-1 2xl:grid-cols-2">{section('pengadaan', 'Proses Pengadaan')}{section('pasca', 'Pasca Pengadaan')}</div>
       {rows.length > 0 && (
         <div className="overflow-x-auto border-t border-line">
@@ -201,10 +215,10 @@ function StoppedByPosition({ rows }: { rows: Props['stopped']['by_position'] }) 
   );
 }
 
-type Cat = 'time' | 'value' | 'approval' | 'vendor';
+type Cat = 'time' | 'value' | 'approval' | 'vendor' | 'category';
 const CATS: { value: Cat; label: string }[] = [
   { value: 'time', label: 'Waktu Proses Pengadaan' }, { value: 'value', label: 'Nilai SP2K / PO' },
-  { value: 'approval', label: 'Proses Approval' }, { value: 'vendor', label: 'Vendor Pemenang' },
+  { value: 'approval', label: 'Proses Approval' }, { value: 'vendor', label: 'Vendor Pemenang' }, { value: 'category', label: 'Kategori Pengadaan' },
 ];
 
 /** Top 5 dengan kategori yang dipilih pengguna. */
@@ -216,6 +230,7 @@ function TopFive({ top }: { top: Props['top'] }) {
   const [group, setGroup] = useState('');
   const [apDir, setApDir] = useState<'fastest' | 'slowest'>('slowest');
   const [vBy, setVBy] = useState<'by_count' | 'by_value'>('by_count');
+  const [cBy, setCBy] = useState<'count' | 'rab'>('count');
 
   let controls: React.ReactNode = null;
   let list: { key: string; title: React.ReactNode; sub?: React.ReactNode; value: number; label: string; href?: string }[] = [];
@@ -238,6 +253,11 @@ function TopFive({ top }: { top: Props['top'] }) {
       list = (top.approval.items[group]?.[apDir] || []).map((x) => ({ key: x.code, title: x.spp_number || x.code, sub: x.title, value: x.days, label: `${x.days} hari`, href: `/pengadaan/${x.code}?tab=proses` }));
       caption = `Lama di kelompok ${group} (hari kerja), hanya pengadaan yang sudah melewatinya.`;
     }
+  } else if (cat === 'category') {
+    controls = <Segmented value={cBy} onChange={(v) => setCBy(v as 'count' | 'rab')} options={[{ value: 'count', label: 'Jumlah pengadaan' }, { value: 'rab', label: 'Total RAB' }]} />;
+    list = [...top.category].sort((a, b) => (cBy === 'count' ? b.count - a.count || b.rab - a.rab : b.rab - a.rab))
+      .map((x) => ({ key: x.name, title: x.name, sub: `${x.count} pengadaan · ${x.contracted} terkontrak · RAB ${rpShort(x.rab)}`, value: cBy === 'count' ? x.count : x.rab, label: cBy === 'count' ? `${x.count} pengadaan` : rp(x.rab), href: `/pengadaan?seg=all&kategori=${encodeURIComponent(x.name)}` }));
+    caption = 'Seluruh pengadaan terdaftar dalam periode dan filter ini, termasuk yang sudah selesai (tanpa Gagal/Dibatalkan).';
   } else {
     controls = <Segmented value={vBy} onChange={(v) => setVBy(v as 'by_count' | 'by_value')} options={[{ value: 'by_count', label: 'Jumlah menang' }, { value: 'by_value', label: 'Total nilai' }]} />;
     list = top.vendor[vBy].map((x) => ({ key: x.vendor, title: x.vendor, sub: `${x.count} pengadaan · SP2K ${x.sp2k}, PO ${x.po} · ${rpShort(x.value)}`, value: vBy === 'by_count' ? x.count : x.value, label: vBy === 'by_count' ? `${x.count} pengadaan` : rp(x.value) }));
